@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Ngrok dynamic URLs
+ngrok-urls.json
+public/ngrok-urls.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

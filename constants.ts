@@ -1,4 +1,3 @@
-
 import { Song } from './types';
 
 // Standard chromatic scale pitches (A4 = 440Hz)
@@ -13,6 +12,7 @@ export const PITCHES = {
   C5: 523.25
 };
 
+// Legacy single-player song (kept for compatibility)
 export const SONGS: Song[] = [
   {
     id: 'boss-theme-1',
@@ -33,6 +33,32 @@ export const SONGS: Song[] = [
   }
 ];
 
+// ============ MULTIPLAYER CONSTANTS ============
+
+// Server configuration
+export const SERVER_PORT = 3001;
+export const CLIENT_PORT = 3000;
+export const SOCKET_URL = `http://localhost:${SERVER_PORT}`;
+
+// Game mechanics
+export const MAX_HP = 100;
+export const BASE_DAMAGE = 5;
+export const MAX_BONUS_DAMAGE = 15;
+
+// Pitch detection thresholds (in cents)
+export const PERFECT_THRESHOLD_CENTS = 10;
+export const GOOD_THRESHOLD_CENTS = 25;
+export const OK_THRESHOLD_CENTS = 50;
+
+// Timing
+export const PITCH_SEND_RATE_HZ = 60;
+export const GAME_TICK_RATE_MS = 16;
+export const ANIMATION_DURATION_MS = 200;
+
+// Messages
 export const HP_DAMAGE = 10;
-export const WIN_MESSAGE = "VICTORY! YOUR VOICE IS SUPREME.";
-export const LOSE_MESSAGE = "DEFEAT. TIME TO HIT THE VOCAL COACH.";
+export const WIN_MESSAGE = "YOUR VOICE SHATTERED THE COMPETITION! FLAWLESS VICTORY!";
+export const LOSE_MESSAGE = "YOUR PITCH WAS OFF... THE SCREAM LORD PREVAILS!";
+export const P1_WIN_MESSAGE = "PLAYER 1 WINS! VOCAL SUPREMACY!";
+export const P2_WIN_MESSAGE = "PLAYER 2 WINS! PITCH PERFECT VICTORY!";
+export const TIE_MESSAGE = "IT'S A TIE! BOTH VOICES ARE EQUALLY POWERFUL!";

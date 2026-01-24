@@ -1,0 +1,7 @@
+{
+  "name": "Vocal Combat: Pitch Fighter",
+  "description": "A fusion of karaoke and a fighting game where your voice is your weapon. Sing the correct pitches to launch devastating attacks and defeat your opponent.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

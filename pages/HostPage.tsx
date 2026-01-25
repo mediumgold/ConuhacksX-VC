@@ -532,8 +532,31 @@ const HostPage: React.FC = () => {
 
     // Small delay to ensure video starts playing before switching views
     setTimeout(() => {
+      // Get fresh duration from YouTube player (in case state wasn't updated yet)
+      let duration = songDuration;
+      if (ytPlayerRef.current && ytPlayerRef.current.getDuration) {
+        const ytDuration = ytPlayerRef.current.getDuration();
+        if (ytDuration > 0) {
+          duration = ytDuration;
+        }
+      }
+      
+      // Fallback: use MIDI duration if YouTube duration is still 0
+      if (duration <= 0 && midiNotes.length > 0) {
+        const lastNote = midiNotes[midiNotes.length - 1];
+        duration = lastNote.time + lastNote.duration;
+      }
+      
+      // Final fallback: 3 minutes default
+      if (duration <= 0) {
+        duration = 180;
+        console.warn('[HostPage] ⚠️ Could not determine song duration, using default 180s');
+      }
+      
+      console.log('[HostPage] Starting game with duration:', duration, 'seconds');
+      
       // Initialize game state - this will trigger view switch
-      const initialState = createInitialGameState(songDuration);
+      const initialState = createInitialGameState(duration);
       initialState.phase = GamePhase.PLAYING;
       setGameState(initialState);
       console.log('[HostPage] Game state set to PLAYING');

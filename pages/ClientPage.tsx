@@ -28,6 +28,10 @@ const ClientPage: React.FC = () => {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  
+  // Refs to avoid stale closure in mic loop
+  const gameStartedRef = useRef(false);
+  const assignedSlotRef = useRef<PlayerSlot | null>(null);
 
   // Connect to server
   useEffect(() => {
@@ -47,7 +51,8 @@ const ClientPage: React.FC = () => {
     // Socket event handlers
     socketClient.on('player_assigned', (data: { slot: PlayerSlot }) => {
       setAssignedSlot(data.slot);
-      console.log(`Assigned as Player ${data.slot}`);
+      assignedSlotRef.current = data.slot;
+      console.log(`[Client] ✅ Assigned as Player ${data.slot}`);
     });
 
     socketClient.on('error', (data: { message: string }) => {
@@ -57,6 +62,7 @@ const ClientPage: React.FC = () => {
     socketClient.on('game_start', () => {
       console.log('[Client] ✅ GAME_START event received - pitch transmission now enabled');
       setGameStarted(true);
+      gameStartedRef.current = true;
     });
 
     socketClient.on('game_state', (state: GameState) => {
@@ -145,17 +151,20 @@ const ClientPage: React.FC = () => {
       const pitch = autoCorrelate(buffer, audioCtxRef.current.sampleRate);
       setCurrentPitch(pitch);
 
-      // Send pitch data to server if game is active
-      if (gameStarted && assignedSlot && pitch > 0) {
+      // Send pitch data to server if game is active (use refs to avoid stale closure)
+      const isGameActive = gameStartedRef.current;
+      const slot = assignedSlotRef.current;
+      
+      if (isGameActive && slot && pitch > 0) {
         // Log every 30 frames (~0.5 seconds at 60fps)
         if (Math.random() < 0.033) {
-          console.log(`[Client P${assignedSlot}] ✅ Sending pitch:`, Math.round(pitch), 'Hz, volume:', rms.toFixed(3));
+          console.log(`[Client P${slot}] ✅ Sending pitch:`, Math.round(pitch), 'Hz, volume:', rms.toFixed(3));
         }
-        socketClient.sendPitchData(assignedSlot, pitch, Date.now(), rms);
+        socketClient.sendPitchData(slot, pitch, Date.now(), rms);
       } else if (pitch > 0) {
         // Log if pitch detected but can't send
         if (Math.random() < 0.01) {
-          console.log(`[Client] ⚠️ Pitch detected (${Math.round(pitch)}Hz) but NOT sending - gameStarted:${gameStarted}, assignedSlot:${assignedSlot}`);
+          console.log(`[Client] ⚠️ Pitch detected (${Math.round(pitch)}Hz) but NOT sending - gameStarted:${isGameActive}, assignedSlot:${slot}`);
         }
       }
       

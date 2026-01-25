@@ -5,6 +5,8 @@ import { getNoteAtTime } from './midiParser';
 // ============ CONSTANTS ============
 export const DEFAULT_HP = 100;
 export const DAMAGE_PER_HIT = 2;
+export const SCORE_PER_HIT = 10;
+export const COMBO_THRESHOLD = 10; // Notes needed to trigger combo attack
 export const PERFECT_THRESHOLD_CENTS = 10;
 export const GOOD_THRESHOLD_CENTS = 25;
 export const OK_THRESHOLD_CENTS = 50;
@@ -85,7 +87,10 @@ export function createInitialPlayerState(slot: PlayerSlot, name: string, maxHp: 
     isAttacking: false,
     isDamaged: false,
     currentPitch: -1,
-    name
+    name,
+    damageAccumulator: 0,
+    comboCount: 0,
+    isComboAttacking: false
   };
 }
 
@@ -149,46 +154,82 @@ export function processGameTick(
     p1Accuracy = calculatePitchAccuracy(currentNote.pitch, p1Pitch);
     p2Accuracy = calculatePitchAccuracy(currentNote.pitch, p2Pitch);
     
-    // Only attacking player deals damage
+    // Only attacking player accumulates damage
     if (attacker === 1 && p1Accuracy > 0) {
-      p2Damage = calculateDamage(p1Accuracy);
-      newState.player1 = {
-        ...newState.player1,
-        isAttacking: true,
-        score: newState.player1.score + Math.round(p1Accuracy * 100),
-        totalAccuracy: newState.player1.totalAccuracy + p1Accuracy,
-        notesHit: newState.player1.notesHit + 1
-      };
-      newState.player2 = {
-        ...newState.player2,
-        isDamaged: true,
-        hp: Math.max(0, newState.player2.hp - p2Damage)
-      };
+      const newComboCount = newState.player1.comboCount + 1;
+      const newDamageAccum = newState.player1.damageAccumulator + DAMAGE_PER_HIT;
+      
+      // Check if combo threshold reached
+      if (newComboCount >= COMBO_THRESHOLD) {
+        // Apply all accumulated damage at once
+        p2Damage = newDamageAccum;
+        newState.player1 = {
+          ...newState.player1,
+          isAttacking: true,
+          isComboAttacking: true,
+          score: newState.player1.score + SCORE_PER_HIT,
+          totalAccuracy: newState.player1.totalAccuracy + p1Accuracy,
+          notesHit: newState.player1.notesHit + 1,
+          damageAccumulator: 0,
+          comboCount: 0
+        };
+        newState.player2 = {
+          ...newState.player2,
+          isDamaged: true,
+          hp: Math.max(0, newState.player2.hp - p2Damage)
+        };
+      } else {
+        // Accumulate damage, no attack yet
+        newState.player1 = {
+          ...newState.player1,
+          isAttacking: true,
+          score: newState.player1.score + SCORE_PER_HIT,
+          totalAccuracy: newState.player1.totalAccuracy + p1Accuracy,
+          notesHit: newState.player1.notesHit + 1,
+          damageAccumulator: newDamageAccum,
+          comboCount: newComboCount
+        };
+      }
     } else if (attacker === 2 && p2Accuracy > 0) {
-      p1Damage = calculateDamage(p2Accuracy);
-      newState.player2 = {
-        ...newState.player2,
-        isAttacking: true,
-        score: newState.player2.score + Math.round(p2Accuracy * 100),
-        totalAccuracy: newState.player2.totalAccuracy + p2Accuracy,
-        notesHit: newState.player2.notesHit + 1
-      };
-      newState.player1 = {
-        ...newState.player1,
-        isDamaged: true,
-        hp: Math.max(0, newState.player1.hp - p1Damage)
-      };
+      const newComboCount = newState.player2.comboCount + 1;
+      const newDamageAccum = newState.player2.damageAccumulator + DAMAGE_PER_HIT;
+      
+      // Check if combo threshold reached
+      if (newComboCount >= COMBO_THRESHOLD) {
+        // Apply all accumulated damage at once
+        p1Damage = newDamageAccum;
+        newState.player2 = {
+          ...newState.player2,
+          isAttacking: true,
+          isComboAttacking: true,
+          score: newState.player2.score + SCORE_PER_HIT,
+          totalAccuracy: newState.player2.totalAccuracy + p2Accuracy,
+          notesHit: newState.player2.notesHit + 1,
+          damageAccumulator: 0,
+          comboCount: 0
+        };
+        newState.player1 = {
+          ...newState.player1,
+          isDamaged: true,
+          hp: Math.max(0, newState.player1.hp - p1Damage)
+        };
+      } else {
+        // Accumulate damage, no attack yet
+        newState.player2 = {
+          ...newState.player2,
+          isAttacking: true,
+          score: newState.player2.score + SCORE_PER_HIT,
+          totalAccuracy: newState.player2.totalAccuracy + p2Accuracy,
+          notesHit: newState.player2.notesHit + 1,
+          damageAccumulator: newDamageAccum,
+          comboCount: newComboCount
+        };
+      }
     }
   }
   
-  // Check win conditions
-  if (newState.player1.hp <= 0) {
-    newState.phase = GamePhase.GAME_OVER;
-    newState.winner = 2;
-  } else if (newState.player2.hp <= 0) {
-    newState.phase = GamePhase.GAME_OVER;
-    newState.winner = 1;
-  } else if (currentTime >= gameState.songDuration) {
+  // Game only ends when song ends (no HP-based game over)
+  if (currentTime >= gameState.songDuration) {
     newState.phase = GamePhase.GAME_OVER;
     // Determine winner by score
     if (newState.player1.score > newState.player2.score) {
@@ -227,7 +268,7 @@ export function processGameTick(
 export function resetAnimationFlags(gameState: GameState): GameState {
   return {
     ...gameState,
-    player1: { ...gameState.player1, isAttacking: false, isDamaged: false },
-    player2: { ...gameState.player2, isAttacking: false, isDamaged: false }
+    player1: { ...gameState.player1, isAttacking: false, isDamaged: false, isComboAttacking: false },
+    player2: { ...gameState.player2, isAttacking: false, isDamaged: false, isComboAttacking: false }
   };
 }

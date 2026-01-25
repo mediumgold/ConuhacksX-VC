@@ -30,6 +30,9 @@ export interface PlayerState {
   isDamaged: boolean;
   currentPitch: number;
   name: string;
+  damageAccumulator: number;  // Accumulated damage (2 per hit)
+  comboCount: number;         // Notes hit in current combo
+  isComboAttacking: boolean;  // True when combo attack animation should play
 }
 
 // ============ GAME STATE ============

@@ -196,7 +196,7 @@ const ClientPage: React.FC = () => {
       <div className="max-w-md w-full">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-black text-cyan-500 mb-2">VOCAL COMBAT</h1>
+          <h1 className="text-3xl font-black text-cyan-500 mb-2">KARAOKE COMBAT</h1>
           <p className="text-yellow-500">
             {assignedSlot ? `PLAYER ${assignedSlot}` : 'CONNECTING...'}
           </p>

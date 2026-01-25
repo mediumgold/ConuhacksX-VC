@@ -1,0 +1,121 @@
+[00:00.29] (채영이가 좋아하는 랜덤게임)
+[00:03.33] (랜덤게임, game start!)
+[00:06.62] 아파트, 아파트
+[00:08.27] 아파트, 아파트
+[00:09.82] 아파트, 아파트
+[00:11.43] Uh, uh-huh, uh-huh
+[00:13.14] 아파트, 아파트
+[00:14.63] 아파트, 아파트
+[00:16.29] 아파트, 아파트
+[00:17.89] Uh, uh-huh, uh-huh
+[00:19.49] Kissy face, kissy face, sent to your phone, but
+[00:22.86] I'm trying to kiss your lips for real (uh-huh, uh-huh)
+[00:25.96] Red hearts, red hearts, that's what I'm on, yeah
+[00:29.33] Come give me somethin' I can feel (oh-oh-oh)
+[00:32.34] Don't you want me like I want you, baby?
+[00:35.54] Don't you need me like I need you now?
+[00:38.72] Sleep tomorrow, but tonight go crazy
+[00:42.07] All you gotta do is just meet me at the
+[00:45.38] 아파트, 아파트
+[00:46.80] 아파트, 아파트
+[00:48.54] 아파트, 아파트
+[00:50.00] Uh, uh-huh, uh-huh
+[00:51.77] 아파트, 아파트
+[00:53.36] 아파트, 아파트
+[00:54.97] 아파트, 아파트
+[00:56.57] Uh, uh-huh, uh-huh
+[00:57.63] It's whatever, it's whatever, it's whatever you like (whoo)
+[01:01.30] Turn this 아파트 into a club (uh-huh, uh-huh)
+[01:04.03] I'm talking drink, dance, smoke, freak, party all night (come on)
+[01:08.10] 건배, 건배 girl, what's up? (Oh-oh-oh)
+[01:11.02] Don't you want me like I want you, baby?
+[01:14.23] Don't you need me like I need you now?
+[01:17.44] Sleep tomorrow, but tonight go crazy
+[01:20.64] All you gotta do is just meet me at the
+[01:23.91] 아파트, 아파트
+[01:25.46] 아파트, 아파트
+[01:27.08] 아파트, 아파트
+[01:28.76] Uh, uh-huh, uh-huh
+[01:30.39] 아파트, 아파트
+[01:31.97] 아파트, 아파트
+[01:33.55] 아파트, 아파트
+[01:35.28] Uh, uh-huh, uh-huh
+[01:36.84] Hey, so now you know the game
+[01:39.82] Are you ready?
+[01:40.92] 'Cause I'm comin' to get you, get you, get you
+[01:43.28] Hold on, hold on, I'm on my way
+[01:49.67] Yeah, yeah, yeah-yeah-yeah
+[01:51.84] I'm on my way
+[01:56.06] Hold on, hold on, I'm on my way
+[02:02.55] Yeah, yeah, yeah-yeah-yeah
+[02:04.74] I'm on my way
+[02:09.00] Don't you want me like I want you, baby?
+[02:12.26] Don't you need me like I need you now?
+[02:15.41] Sleep tomorrow, but tonight go crazy
+[02:18.68] All you gotta do is just meet me at the
+[02:21.93] 아파트, 아파트
+[02:23.49] 아파트, 아파트
+[02:25.01] 아파트, 아파트
+[02:26.24] Just meet me at the (uh, uh-huh, uh-huh)
+[02:28.32] 아파트, 아파트
+[02:29.92] 아파트, 아파트
+[02:31.56] 아파트, 아파트
+[02:32.76] Just meet me at the (uh, uh-huh, uh-huh)
+[02:34.75] 아파트, 아파트
+[02:36.31] 아파트, 아파트
+[02:37.98] 아파트, 아파트
+[02:39.12] Just meet me at the (uh, uh-huh, uh-huh)
+[02:41.20] 아파트, 아파트
+[02:42.73] 아파트, 아파트
+[02:44.42] 아파트, 아파트
+[02:46.08] Uh, uh-huh, uh-huh
+[02:47.70]
+
+- for the youtube video link i want to have a drop down that shows all the links. The links can be 
+found in the links.txt. the format will be ["name of song and artist"]{link}. The drop down should 
+only show the name and song of the artist. when song name and artist is selected from the dropdown,
+ it should insert the link into the ui.\
+-there should also be a dropdown menu to show all the midi files available. the midi files can be 
+found in the midi files folder.\
+-there should also be a dropdown menu for the lyrics. You can find the lyrics in the lyrics folder 
+and each lyrics is in a .txt file.\
+now the flow should be this:\
+run the app\
+go to the host\
+select youtube link from dropdown (youtube link abstracted by title)\
+select midi file from dropdown\
+select lyrics .txt file from the dropdown menu, selecting the txt file should input the text into 
+the field.\
+once both players have entered the lobby and are ready. pressing the start game button would start 
+the game and the music will play and the game will run.\
+this is what i want done, ask me any questions to make sure you know what i want 
+
+⏺ I understand what you want! Let me clarify a few things before I create the plan:
+
+  Questions:
+
+  1. links.txt file: Does this file already exist in your project? If so, where is it located?
+  (e.g., in the root folder, in a data folder, etc.)
+  2. lyrics folder: Does the lyrics folder already exist? If so, where is it located relative to
+  the project root?
+  3. MIDI dropdown: I notice the MIDI dropdown already exists in the code (it shows files from the
+  "Midi Files" folder). Should I keep it as is, or do you want me to change how it works?
+  4. Auto-loading behavior:
+    - When a YouTube link is selected from the dropdown, should it automatically load the video
+  (like clicking the "Load" button)?
+    - When a lyrics .txt file is selected, should it automatically parse the lyrics, or just fill
+  the text area and let the user click "Parse Lyrics"?
+  5. Format of links.txt: Can you confirm the exact format? For example:
+  ["APT - Rose & Bruno Mars"]{https://www.youtube.com/watch?v=h51k6Imtsk8}
+  ["Another Song - Artist Name"]{https://youtube.com/watch?v=xyz123}
+  6. Lyrics .txt files: Are these plain LRC format files (with timestamps like [00:10.00] 
+  lyrics...) or just plain text?
+  7. Should all three dropdowns be required before starting the game, or are lyrics still optional?
+
+1. this file already exists and its in the root folder\
+2.lyrics folder already exists and its in the root folder\
+3. i dont see the midi dropdown\
+4.yes, and automatically parse lyrics\
+5.the format is correct but there are no quotation marks\
+6.plain text but the text files are in lrc format since they have time stamps\
+7.required 

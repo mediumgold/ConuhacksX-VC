@@ -129,7 +129,8 @@ class SocketClient {
 
   // Send game state update (host only)
   sendGameStateUpdate(gameState: GameState) {
-    this.socket?.emit('game_state_update', gameState);
+    if (!this.socket?.connected) return;
+    this.socket.emit('game_state_update', gameState);
   }
 
   // Send game over (host only)

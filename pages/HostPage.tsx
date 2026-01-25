@@ -71,6 +71,7 @@ const HostPage: React.FC = () => {
   const ytReadyRef = useRef(false);
   const gameLoopRef = useRef<number | null>(null);
   const gameStartTimeRef = useRef<number>(0);
+  const lastBroadcastRef = useRef<number>(0);
 
   // Connect to server on mount
   useEffect(() => {
@@ -96,9 +97,6 @@ const HostPage: React.FC = () => {
     });
 
     socketClient.on('pitch_update', (data: { slot: 1 | 2; pitch: number }) => {
-      // Log every pitch to verify data is arriving
-      console.log(`[Host] 🎤 Received pitch from P${data.slot}:`, Math.round(data.pitch), 'Hz');
-      
       if (data.slot === 1) {
         setP1Pitch(data.pitch);
         p1PitchRef.current = data.pitch;
@@ -572,12 +570,6 @@ const HostPage: React.FC = () => {
     }
 
     const currentTime = ytPlayerRef.current.getCurrentTime() || 0;
-    const playerState = ytPlayerRef.current.getPlayerState?.();
-    
-    // Log every second approximately
-    if (Math.floor(currentTime * 10) % 10 === 0) {
-      console.log('[GameLoop] Running:', { currentTime: currentTime.toFixed(2), playerState, midiNotes: midiNotes.length });
-    }
 
     setGameState(prevState => {
       if (!prevState || prevState.phase !== GamePhase.PLAYING) {
@@ -585,18 +577,13 @@ const HostPage: React.FC = () => {
       }
 
       // Process tick - use refs to get current pitch values (avoid stale closure)
-      const { gameState: newState, p1Accuracy, p2Accuracy, p1Damage, p2Damage } = processGameTick(
+      const { gameState: newState } = processGameTick(
         prevState,
         midiNotes,
         p1PitchRef.current,
         p2PitchRef.current,
         currentTime
       );
-      
-      // Log when damage is dealt
-      if (p1Damage > 0 || p2Damage > 0) {
-        console.log(`[GameLoop] ⚔️ DAMAGE! P1 dealt ${p1Damage.toFixed(1)} (acc: ${(p1Accuracy*100).toFixed(0)}%), P2 dealt ${p2Damage.toFixed(1)} (acc: ${(p2Accuracy*100).toFixed(0)}%)`);
-      }
 
       // Update current lyric and next lyric
       const lyric = getLyricAtTime(lyrics, currentTime);
@@ -616,8 +603,12 @@ const HostPage: React.FC = () => {
         }
       }
 
-      // Broadcast state to clients
-      socketClient.sendGameStateUpdate(newState);
+      // Throttle broadcasts to every 100ms to reduce network load
+      const now = Date.now();
+      if (now - lastBroadcastRef.current > 100) {
+        socketClient.sendGameStateUpdate(newState);
+        lastBroadcastRef.current = now;
+      }
 
       // Check for game over
       if (newState.phase === GamePhase.GAME_OVER) {

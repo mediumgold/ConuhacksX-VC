@@ -292,25 +292,16 @@ io.on('connection', (socket: Socket) => {
 
   // Handle pitch data from clients
   socket.on('pitch_data', (payload: PitchDataPayload) => {
-    // Always log first few pitch data to verify connection
-    console.log(`[Server] 🎤 Pitch data received from socket ${socket.id}: P${payload.slot} = ${Math.round(payload.pitch)}Hz`);
-    
-    if (!session.gameInProgress) {
-      console.log('[Server] ⚠️ Pitch data received but game not in progress (gameInProgress=false)');
-      return;
-    }
+    if (!session.gameInProgress) return;
 
     // Relay pitch data to host
     if (session.hostSocketId) {
-      console.log(`[Server] ✅ Relaying pitch from P${payload.slot}: ${Math.round(payload.pitch)}Hz to host ${session.hostSocketId}`);
       io.to(session.hostSocketId).emit('pitch_update', {
         slot: payload.slot,
         pitch: payload.pitch,
         timestamp: payload.timestamp,
         volume: payload.volume
       });
-    } else {
-      console.log('[Server] ⚠️ No host connected to relay pitch data to');
     }
   });
 

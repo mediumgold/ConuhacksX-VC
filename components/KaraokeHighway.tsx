@@ -1,5 +1,5 @@
 
-import React, { useRef, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Note, MidiNote } from '../types';
 
 interface KaraokeHighwayProps {
@@ -8,6 +8,15 @@ interface KaraokeHighwayProps {
   currentPitch: number;
   attackingPlayer?: 1 | 2;
 }
+
+// Fixed logarithmic scale constants
+const MIN_FREQ = 20;
+const MAX_FREQ = 5000;
+const LOG_MIN = Math.log10(MIN_FREQ);
+const LOG_MAX = Math.log10(MAX_FREQ);
+
+// Option A labels: 20, 100, 200, 400, 800, 1600, 3200, 5000
+const FREQ_LABELS = [20, 100, 200, 400, 800, 1600, 3200, 5000];
 
 const KaraokeHighway: React.FC<KaraokeHighwayProps> = ({ 
   notes, 
@@ -18,10 +27,6 @@ const KaraokeHighway: React.FC<KaraokeHighwayProps> = ({
   const VIEW_WINDOW = 5; // Seconds shown ahead
   const VIEW_BEHIND = 1; // Seconds shown behind
   
-  // Smoothed frequency range using refs to avoid jitter
-  const smoothMinFreqRef = useRef(0);
-  const smoothMaxFreqRef = useRef(600);
-  
   // Memoize visible notes calculation - only recalculate when notes or time changes significantly
   const visibleNotes = useMemo(() => {
     return notes.filter(n => 
@@ -30,47 +35,23 @@ const KaraokeHighway: React.FC<KaraokeHighwayProps> = ({
     );
   }, [notes, Math.floor(currentTime * 10) / 10]); // Round time to 0.1s precision
 
-  // Calculate target frequency range based on visible notes
-  const freqs = visibleNotes.map(n => n.pitch).filter(f => f > 0);
-  
-  let targetMinFreq = 0;
-  let targetMaxFreq = 600; // Default range for low notes
-  
-  if (freqs.length > 0) {
-    const minNote = Math.min(...freqs);
-    const maxNote = Math.max(...freqs);
-    
-    // Add 20% padding above and below for better visibility
-    const padding = (maxNote - minNote) * 0.2;
-    targetMinFreq = Math.max(0, minNote - padding);
-    targetMaxFreq = maxNote + padding;
-    
-    // Ensure minimum range of 400 Hz for usability
-    if (targetMaxFreq - targetMinFreq < 400) {
-      const center = (targetMaxFreq + targetMinFreq) / 2;
-      targetMinFreq = Math.max(0, center - 200);
-      targetMaxFreq = center + 200;
-    }
-    
-    // Round to nice numbers for cleaner display
-    targetMinFreq = Math.floor(targetMinFreq / 50) * 50;
-    targetMaxFreq = Math.ceil(targetMaxFreq / 50) * 50;
-  }
-  
-  // Smooth the frequency range using exponential moving average
-  // Higher smoothing factor = smoother but slower response
-  const smoothingFactor = 0.15;
-  smoothMinFreqRef.current += (targetMinFreq - smoothMinFreqRef.current) * smoothingFactor;
-  smoothMaxFreqRef.current += (targetMaxFreq - smoothMaxFreqRef.current) * smoothingFactor;
-  
-  const minFreq = smoothMinFreqRef.current;
-  const maxFreq = smoothMaxFreqRef.current;
-
-  // Map frequency to vertical position
+  // Map frequency to vertical position using logarithmic scale
+  // Higher frequencies at top (0%), lower at bottom (100%)
   const getTopPosition = (freq: number) => {
     if (freq <= 0) return '50%';
-    const percent = 100 - ((freq - minFreq) / (maxFreq - minFreq)) * 100;
-    return `${Math.max(5, Math.min(95, percent))}%`;
+    // Clamp frequency to valid range
+    const clampedFreq = Math.max(MIN_FREQ, Math.min(MAX_FREQ, freq));
+    const logFreq = Math.log10(clampedFreq);
+    // Map log scale to percentage (inverted so high freq = top)
+    const percent = 100 - ((logFreq - LOG_MIN) / (LOG_MAX - LOG_MIN)) * 100;
+    return `${Math.max(2, Math.min(98, percent))}%`;
+  };
+  
+  // Get position for frequency labels
+  const getLabelPosition = (freq: number) => {
+    const logFreq = Math.log10(freq);
+    const percent = 100 - ((logFreq - LOG_MIN) / (LOG_MAX - LOG_MIN)) * 100;
+    return percent;
   };
 
   // Check if pitch matches a note
@@ -90,11 +71,6 @@ const KaraokeHighway: React.FC<KaraokeHighwayProps> = ({
         {currentTime.toFixed(1)}s
       </div>
       
-      {/* Dynamic range indicator */}
-      <div className="absolute right-2 top-2 text-[9px] text-gray-500 font-mono z-20">
-        Range: {Math.round(minFreq)}-{Math.round(maxFreq)}Hz
-      </div>
-
       {/* Pitch Indicator (User's real-time voice) */}
       {currentPitch > 0 && (
         <div 
@@ -113,15 +89,28 @@ const KaraokeHighway: React.FC<KaraokeHighwayProps> = ({
         </div>
       )}
 
-      {/* Frequency scale labels - Dynamic based on range */}
-      <div className="absolute left-1 top-0 h-full flex flex-col justify-between py-2 text-[9px] text-gray-400 font-mono">
-        <span>{Math.round(maxFreq)}Hz</span>
-        <span>{Math.round(maxFreq * 0.83)}Hz</span>
-        <span>{Math.round(maxFreq * 0.67)}Hz</span>
-        <span>{Math.round(maxFreq * 0.5)}Hz</span>
-        <span>{Math.round(maxFreq * 0.33)}Hz</span>
-        <span>{Math.round(maxFreq * 0.17)}Hz</span>
-        <span>{Math.round(minFreq)}Hz</span>
+      {/* Frequency scale labels - Fixed logarithmic scale */}
+      <div className="absolute left-0 top-0 h-full w-20 text-[9px] text-gray-400 font-mono">
+        {FREQ_LABELS.map(freq => (
+          <div 
+            key={freq}
+            className="absolute right-2"
+            style={{ top: `${getLabelPosition(freq)}%`, transform: 'translateY(-50%)' }}
+          >
+            {freq >= 1000 ? `${freq/1000}k` : freq}Hz
+          </div>
+        ))}
+      </div>
+      
+      {/* Horizontal guide lines at label positions */}
+      <div className="absolute left-20 right-0 top-0 h-full pointer-events-none">
+        {FREQ_LABELS.map(freq => (
+          <div 
+            key={freq}
+            className={`absolute w-full h-px ${freq >= 100 && freq <= 800 ? 'bg-cyan-500/30' : 'bg-gray-700/30'}`}
+            style={{ top: `${getLabelPosition(freq)}%` }}
+          />
+        ))}
       </div>
 
       {/* Staff Lines */}

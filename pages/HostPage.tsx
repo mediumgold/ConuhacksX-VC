@@ -62,6 +62,9 @@ const HostPage: React.FC = () => {
   // Player pitches (received from clients) - using state to trigger re-renders
   const [p1Pitch, setP1Pitch] = useState(-1);
   const [p2Pitch, setP2Pitch] = useState(-1);
+  // Refs for pitch values to avoid stale closure in game loop
+  const p1PitchRef = useRef(-1);
+  const p2PitchRef = useRef(-1);
   
   // YouTube player
   const ytPlayerRef = useRef<any>(null);
@@ -93,13 +96,11 @@ const HostPage: React.FC = () => {
     });
 
     socketClient.on('pitch_update', (data: { slot: 1 | 2; pitch: number }) => {
-      // Log every pitch to verify data is arriving
-      console.log(`[Host] 🎤 Received pitch from P${data.slot}:`, Math.round(data.pitch), 'Hz');
-      
+      // Update refs immediately (no re-render needed for game loop)
       if (data.slot === 1) {
-        setP1Pitch(data.pitch);
+        p1PitchRef.current = data.pitch;
       } else {
-        setP2Pitch(data.pitch);
+        p2PitchRef.current = data.pitch;
       }
     });
 
@@ -546,24 +547,21 @@ const HostPage: React.FC = () => {
     const currentTime = ytPlayerRef.current.getCurrentTime() || 0;
     const playerState = ytPlayerRef.current.getPlayerState?.();
     
-    // Log every second approximately
-    if (Math.floor(currentTime * 10) % 10 === 0) {
-      console.log('[GameLoop] Running:', { currentTime: currentTime.toFixed(2), playerState, midiNotes: midiNotes.length });
-    }
 
     setGameState(prevState => {
       if (!prevState || prevState.phase !== GamePhase.PLAYING) {
         return prevState;
       }
 
-      // Process tick
-      const { gameState: newState } = processGameTick(
+      // Process tick - use refs to get current pitch values (avoid stale closure)
+      const { gameState: newState, p1Accuracy, p2Accuracy, p1Damage, p2Damage } = processGameTick(
         prevState,
         midiNotes,
-        p1Pitch,
-        p2Pitch,
+        p1PitchRef.current,
+        p2PitchRef.current,
         currentTime
       );
+      
 
       // Update current lyric and next lyric
       const lyric = getLyricAtTime(lyrics, currentTime);
@@ -993,10 +991,23 @@ const HostPage: React.FC = () => {
                 </div>
               </div>
               <button
-                onClick={() => window.location.reload()}
+                onClick={() => {
+                  // Reset game state to lobby
+                  setGameState(null);
+                  setP1Pitch(-1);
+                  setP2Pitch(-1);
+                  p1PitchRef.current = -1;
+                  p2PitchRef.current = -1;
+                  setCurrentLyric('');
+                  setNextLyric('');
+                  // Stop YouTube player
+                  if (ytPlayerRef.current) {
+                    ytPlayerRef.current.stopVideo();
+                  }
+                }}
                 className="bg-cyan-600 hover:bg-cyan-500 px-8 py-4 rounded-full font-bold text-xl"
               >
-                PLAY AGAIN
+                🔄 PLAY AGAIN
               </button>
             </div>
           )}

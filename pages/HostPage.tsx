@@ -918,20 +918,12 @@ const HostPage: React.FC = () => {
       {/* Game View */}
       {(isPlaying || isGameOver) && gameState && (
         <div className="min-h-screen bg-black text-white flex flex-col items-center p-4 md:p-8 select-none">
-          {/* Header */}
-          <div className="w-full max-w-5xl flex justify-between items-start mb-4 z-10">
-            <div className="flex flex-col">
-              <h1 className="text-3xl font-black italic text-cyan-500 tracking-tighter">VOCAL COMBAT</h1>
-              <p className="text-xs text-yellow-500">
-                SEGMENT {gameState.currentSegment}/4 — {gameState.attackingPlayer === 1 ? 'P1' : 'P2'} ATTACKING
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-lg font-bold">
-                P1: {gameState.player1.score.toString().padStart(5, '0')} | 
-                P2: {gameState.player2.score.toString().padStart(5, '0')}
-              </p>
-            </div>
+          {/* Header - Centered Title */}
+          <div className="w-full max-w-5xl flex flex-col items-center mb-4 z-10">
+            <h1 className="text-4xl md:text-5xl font-black italic text-cyan-500 tracking-tighter">KARAOKE COMBAT</h1>
+            <p className="text-sm text-yellow-500">
+              SEGMENT {gameState.currentSegment}/4 — {gameState.attackingPlayer === 1 ? 'P1' : 'P2'} ATTACKING
+            </p>
           </div>
 
           {/* Battle Stage */}
@@ -940,20 +932,21 @@ const HostPage: React.FC = () => {
               side="left" 
               hp={gameState.player1.hp} 
               name={gameState.player1.name}
+              score={gameState.player1.score}
               isAttacking={gameState.player1.isAttacking} 
               isDamaged={gameState.player1.isDamaged} 
             />
 
             {/* Center info */}
             <div className="flex flex-col items-center gap-4">
-              <div className="bg-black/80 border-2 border-cyan-500 p-4 rounded-lg max-w-md text-center">
-                <p className="text-xs text-gray-400 mb-1">NOW</p>
-                <p className="text-lg font-bold uppercase text-cyan-400">{currentLyric || '♪ ♪ ♪'}</p>
+              <div className="bg-black/80 border-2 border-cyan-500 p-6 rounded-lg max-w-lg text-center">
+                <p className="text-sm text-gray-400 mb-2">NOW</p>
+                <p className="text-2xl md:text-3xl font-bold uppercase text-cyan-400">{currentLyric || '♪ ♪ ♪'}</p>
                 {nextLyric && (
                   <>
-                    <div className="border-t border-gray-700 my-2"></div>
-                    <p className="text-xs text-gray-400 mb-1">NEXT</p>
-                    <p className="text-sm text-gray-300">{nextLyric}</p>
+                    <div className="border-t border-gray-700 my-3"></div>
+                    <p className="text-sm text-gray-400 mb-1">NEXT</p>
+                    <p className="text-lg md:text-xl text-gray-300">{nextLyric}</p>
                   </>
                 )}
               </div>
@@ -978,6 +971,7 @@ const HostPage: React.FC = () => {
               side="right" 
               hp={gameState.player2.hp} 
               name={gameState.player2.name}
+              score={gameState.player2.score}
               isAttacking={gameState.player2.isAttacking} 
               isDamaged={gameState.player2.isDamaged} 
             />

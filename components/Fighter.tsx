@@ -7,15 +7,21 @@ interface FighterProps {
   isDamaged: boolean;
   hp: number;
   name: string;
+  score: number;
 }
 
-const Fighter: React.FC<FighterProps> = ({ side, isAttacking, isDamaged, hp, name }) => {
+const Fighter: React.FC<FighterProps> = ({ side, isAttacking, isDamaged, hp, name, score }) => {
   const isLeft = side === 'left';
   
   return (
     <div className={`flex flex-col items-center relative transition-transform duration-200 ${
       isAttacking ? (isLeft ? 'translate-x-20 scale-110' : '-translate-x-20 scale-110') : ''
     } ${isDamaged ? 'animate-bounce' : ''}`}>
+      
+      {/* Score above health bar */}
+      <div className={`mb-2 w-48 ${isLeft ? 'text-left' : 'text-right'}`}>
+        <p className="text-3xl md:text-4xl font-black text-white">{score.toString().padStart(5, '0')}</p>
+      </div>
       
       {/* Name and Health Bar */}
       <div className={`mb-4 w-48 ${isLeft ? 'text-left' : 'text-right'}`}>

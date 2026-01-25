@@ -8,7 +8,7 @@ const LandingPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-8">
       <div className="max-w-2xl w-full text-center">
-        <h1 className="text-6xl font-black italic text-cyan-500 mb-4">VOCAL COMBAT</h1>
+        <h1 className="text-6xl font-black italic text-cyan-500 mb-4">KARAOKE COMBAT</h1>
         <p className="text-xl text-yellow-500 mb-12">MULTIPLAYER PITCH FIGHTER</p>
 
         <div className="grid md:grid-cols-2 gap-6 mb-12">

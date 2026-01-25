@@ -156,7 +156,21 @@ const ClientPage: React.FC = () => {
       const slot = assignedSlotRef.current;
       
       if (isGameActive && slot && pitch > 0) {
+        // Log every 30 frames (~0.5 seconds at 60fps)
+        if (Math.random() < 0.033) {
+          console.log(`[Client P${slot}] ✅ Sending pitch:`, Math.round(pitch), 'Hz, volume:', rms.toFixed(3));
+        }
         socketClient.sendPitchData(slot, pitch, Date.now(), rms);
+      } else if (pitch > 0) {
+        // Log if pitch detected but can't send
+        if (Math.random() < 0.01) {
+          console.log(`[Client] ⚠️ Pitch detected (${Math.round(pitch)}Hz) but NOT sending - gameStarted:${isGameActive}, assignedSlot:${slot}`);
+        }
+      }
+      
+      // Log if no pitch detected
+      if (pitch <= 0 && Math.random() < 0.005) {
+        console.log('[Client] No pitch detected (silence or noise)');
       }
 
       animationFrameRef.current = requestAnimationFrame(loop);

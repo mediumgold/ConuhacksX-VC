@@ -1,5 +1,5 @@
 
-import React, { useRef, useMemo, memo } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Note, MidiNote } from '../types';
 
 interface KaraokeHighwayProps {
@@ -9,7 +9,7 @@ interface KaraokeHighwayProps {
   attackingPlayer?: 1 | 2;
 }
 
-const KaraokeHighway: React.FC<KaraokeHighwayProps> = memo(({ 
+const KaraokeHighway: React.FC<KaraokeHighwayProps> = ({ 
   notes, 
   currentTime, 
   currentPitch,
@@ -182,6 +182,6 @@ const KaraokeHighway: React.FC<KaraokeHighwayProps> = memo(({
       </div>
     </div>
   );
-});
+};
 
 export default KaraokeHighway;

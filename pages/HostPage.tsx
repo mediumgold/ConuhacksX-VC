@@ -96,10 +96,14 @@ const HostPage: React.FC = () => {
     });
 
     socketClient.on('pitch_update', (data: { slot: 1 | 2; pitch: number }) => {
-      // Update refs immediately (no re-render needed for game loop)
+      // Log every pitch to verify data is arriving
+      console.log(`[Host] 🎤 Received pitch from P${data.slot}:`, Math.round(data.pitch), 'Hz');
+      
       if (data.slot === 1) {
+        setP1Pitch(data.pitch);
         p1PitchRef.current = data.pitch;
       } else {
+        setP2Pitch(data.pitch);
         p2PitchRef.current = data.pitch;
       }
     });
@@ -547,6 +551,10 @@ const HostPage: React.FC = () => {
     const currentTime = ytPlayerRef.current.getCurrentTime() || 0;
     const playerState = ytPlayerRef.current.getPlayerState?.();
     
+    // Log every second approximately
+    if (Math.floor(currentTime * 10) % 10 === 0) {
+      console.log('[GameLoop] Running:', { currentTime: currentTime.toFixed(2), playerState, midiNotes: midiNotes.length });
+    }
 
     setGameState(prevState => {
       if (!prevState || prevState.phase !== GamePhase.PLAYING) {
@@ -562,6 +570,10 @@ const HostPage: React.FC = () => {
         currentTime
       );
       
+      // Log when damage is dealt
+      if (p1Damage > 0 || p2Damage > 0) {
+        console.log(`[GameLoop] ⚔️ DAMAGE! P1 dealt ${p1Damage.toFixed(1)} (acc: ${(p1Accuracy*100).toFixed(0)}%), P2 dealt ${p2Damage.toFixed(1)} (acc: ${(p2Accuracy*100).toFixed(0)}%)`);
+      }
 
       // Update current lyric and next lyric
       const lyric = getLyricAtTime(lyrics, currentTime);
@@ -991,23 +1003,10 @@ const HostPage: React.FC = () => {
                 </div>
               </div>
               <button
-                onClick={() => {
-                  // Reset game state to lobby
-                  setGameState(null);
-                  setP1Pitch(-1);
-                  setP2Pitch(-1);
-                  p1PitchRef.current = -1;
-                  p2PitchRef.current = -1;
-                  setCurrentLyric('');
-                  setNextLyric('');
-                  // Stop YouTube player
-                  if (ytPlayerRef.current) {
-                    ytPlayerRef.current.stopVideo();
-                  }
-                }}
+                onClick={() => window.location.reload()}
                 className="bg-cyan-600 hover:bg-cyan-500 px-8 py-4 rounded-full font-bold text-xl"
               >
-                🔄 PLAY AGAIN
+                PLAY AGAIN
               </button>
             </div>
           )}

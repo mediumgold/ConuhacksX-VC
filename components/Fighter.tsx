@@ -6,12 +6,14 @@ interface FighterProps {
   isAttacking: boolean;
   isDamaged: boolean;
   hp: number;
+  maxHp: number;
   name: string;
   score: number;
 }
 
-const Fighter: React.FC<FighterProps> = ({ side, isAttacking, isDamaged, hp, name, score }) => {
+const Fighter: React.FC<FighterProps> = ({ side, isAttacking, isDamaged, hp, maxHp, name, score }) => {
   const isLeft = side === 'left';
+  const hpPercent = maxHp > 0 ? (hp / maxHp) * 100 : 0;
   
   return (
     <div className={`flex flex-col items-center relative transition-transform duration-200 ${
@@ -28,8 +30,8 @@ const Fighter: React.FC<FighterProps> = ({ side, isAttacking, isDamaged, hp, nam
         <p className="text-sm font-bold uppercase tracking-widest text-yellow-400 mb-1">{name}</p>
         <div className="w-full h-4 bg-gray-800 border-2 border-white overflow-hidden rounded-full">
           <div 
-            className={`h-full transition-all duration-300 ${hp > 50 ? 'bg-green-500' : hp > 20 ? 'bg-yellow-500' : 'bg-red-500'}`}
-            style={{ width: `${hp}%` }}
+            className={`h-full transition-all duration-300 ${hpPercent > 50 ? 'bg-green-500' : hpPercent > 20 ? 'bg-yellow-500' : 'bg-red-500'}`}
+            style={{ width: `${hpPercent}%` }}
           />
         </div>
       </div>

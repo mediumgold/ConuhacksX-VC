@@ -3,7 +3,7 @@ import type { PlayerSlot, PlayerState, GameState, MidiNote } from '../types';
 import { getNoteAtTime } from './midiParser';
 
 // ============ CONSTANTS ============
-export const DEFAULT_HP = 100;
+export const DEFAULT_HP = 20000;
 export const DAMAGE_PER_HIT = 2;
 export const SCORE_PER_HIT = 10;
 export const COMBO_THRESHOLD = 10; // Notes needed to trigger combo attack
@@ -97,8 +97,8 @@ export function createInitialPlayerState(slot: PlayerSlot, name: string, maxHp: 
 // ============ GAME STATE ============
 
 export function createInitialGameState(songDuration: number, noteCount: number = 100): GameState {
-  // HP equals the number of notes in the MIDI file
-  const maxHp = Math.max(noteCount, 10); // Minimum 10 HP
+  // Fixed HP of 20,000 for all players
+  const maxHp = DEFAULT_HP;
   
   return {
     phase: GamePhase.LOBBY,

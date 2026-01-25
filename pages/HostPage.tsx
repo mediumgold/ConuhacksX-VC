@@ -919,9 +919,9 @@ const HostPage: React.FC = () => {
       {(isPlaying || isGameOver) && gameState && (
         <div className="min-h-screen bg-black text-white flex flex-col items-center p-4 md:p-8 select-none">
           {/* Header - Centered Title */}
-          <div className="w-full max-w-5xl flex flex-col items-center mb-4 z-10">
+          <div className="w-full max-w-5xl flex flex-col items-center mt-8 mb-6 z-10">
             <h1 className="text-4xl md:text-5xl font-black italic text-cyan-500 tracking-tighter">KARAOKE COMBAT</h1>
-            <p className="text-sm text-yellow-500">
+            <p className="text-base md:text-lg text-yellow-500 mt-2">
               SEGMENT {gameState.currentSegment}/4 — {gameState.attackingPlayer === 1 ? 'P1' : 'P2'} ATTACKING
             </p>
           </div>
@@ -930,7 +930,8 @@ const HostPage: React.FC = () => {
           <div className="flex-1 w-full max-w-5xl relative flex flex-col md:flex-row justify-around items-center gap-8">
             <Fighter 
               side="left" 
-              hp={gameState.player1.hp} 
+              hp={gameState.player1.hp}
+              maxHp={gameState.player1.maxHp}
               name={gameState.player1.name}
               score={gameState.player1.score}
               isAttacking={gameState.player1.isAttacking} 
@@ -951,16 +952,16 @@ const HostPage: React.FC = () => {
                 )}
               </div>
               
-              <div className="flex gap-8 text-sm">
+              <div className="flex gap-12 text-lg md:text-xl">
                 <div className="text-center">
-                  <p className="text-gray-500">P1 Pitch</p>
-                  <p className="text-cyan-400 font-mono">
+                  <p className="text-gray-400 text-base mb-1">P1 Pitch</p>
+                  <p className="text-cyan-400 font-mono font-bold text-2xl md:text-3xl">
                     {p1Pitch > 0 ? `${Math.round(p1Pitch)} Hz` : '—'}
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="text-gray-500">P2 Pitch</p>
-                  <p className="text-cyan-400 font-mono">
+                  <p className="text-gray-400 text-base mb-1">P2 Pitch</p>
+                  <p className="text-cyan-400 font-mono font-bold text-2xl md:text-3xl">
                     {p2Pitch > 0 ? `${Math.round(p2Pitch)} Hz` : '—'}
                   </p>
                 </div>
@@ -969,7 +970,8 @@ const HostPage: React.FC = () => {
 
             <Fighter 
               side="right" 
-              hp={gameState.player2.hp} 
+              hp={gameState.player2.hp}
+              maxHp={gameState.player2.maxHp}
               name={gameState.player2.name}
               score={gameState.player2.score}
               isAttacking={gameState.player2.isAttacking} 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { socketClient } from '../services/socketClient';
-import { parseLRC, getLyricAtTime } from '../services/lrcParser';
+import { parseLRC, getLyricAtTime, extractYouTubeTitle } from '../services/lrcParser';
 import { parseMidiFile, getNotesInWindow, getNoteAtTime } from '../services/midiParser';
 import { 
   createInitialGameState, 
@@ -41,6 +41,7 @@ const HostPage: React.FC = () => {
   const [midiFile, setMidiFile] = useState<File | null>(null);
   const [availableMidiFiles, setAvailableMidiFiles] = useState<string[]>([]);
   const [selectedMidiFile, setSelectedMidiFile] = useState('');
+  const [fetchingLyrics, setFetchingLyrics] = useState(false);
   
   // Parsed data
   const [lyrics, setLyrics] = useState<LrcLine[]>([]);
@@ -50,6 +51,7 @@ const HostPage: React.FC = () => {
   // Game state
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [currentLyric, setCurrentLyric] = useState('');
+  const [nextLyric, setNextLyric] = useState('');
   
   // Player pitches (received from clients)
   const p1PitchRef = useRef(-1);
@@ -168,7 +170,10 @@ const HostPage: React.FC = () => {
         height: '200',
         width: '100%',
         videoId: id,
-        playerVars: { playsinline: 1 },
+        playerVars: {
+          playsinline: 1,
+          mute: 1  // Start muted to handle autoplay policies
+        },
         events: {
           onReady: (event: any) => {
             ytReadyRef.current = true;
@@ -202,6 +207,85 @@ const HostPage: React.FC = () => {
       return;
     }
     setLyrics(parsed);
+  };
+
+  // Auto-fill lyrics from lrclib.net using YouTube video title
+  const autoFillLyrics = async () => {
+    if (!ytPlayerRef.current || !ytReadyRef.current) {
+      alert('Please load a YouTube video first');
+      return;
+    }
+
+    setFetchingLyrics(true);
+
+    try {
+      // Get video title from YouTube player
+      const videoData = ytPlayerRef.current.getVideoData();
+      const videoTitle = videoData.title;
+
+      if (!videoTitle) {
+        throw new Error('Could not get video title');
+      }
+
+      // Extract artist and title from video title
+      const { title, artist } = extractYouTubeTitle(videoTitle);
+      console.log('Searching for lyrics:', { title, artist });
+
+      // Get server URL
+      let serverUrl = 'http://localhost:3001';
+      const stored = sessionStorage.getItem('ngrok-config');
+      if (stored) {
+        const config = JSON.parse(stored);
+        if (config.serverUrl) {
+          serverUrl = config.serverUrl;
+        }
+      }
+
+      // Fetch from backend API
+      const params = new URLSearchParams({ title });
+      if (artist) {
+        params.append('artist', artist);
+      }
+
+      const response = await fetch(`${serverUrl}/api/lyrics/search?${params.toString()}`);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch lyrics');
+      }
+
+      const results = await response.json();
+
+      if (!results || results.length === 0) {
+        alert(`No lyrics found for "${title}"${artist ? ` by ${artist}` : ''}`);
+        return;
+      }
+
+      // Get the first result
+      const firstResult = results[0];
+      const syncedLyrics = firstResult.syncedLyrics || firstResult.plainLyrics;
+
+      if (!syncedLyrics) {
+        alert('No synced lyrics available for this song');
+        return;
+      }
+
+      // Auto-fill the text area
+      setLrcText(syncedLyrics);
+
+      // Auto-parse the lyrics
+      const parsed = parseLRC(syncedLyrics);
+      if (parsed.length > 0) {
+        setLyrics(parsed);
+        alert(`✅ Loaded ${parsed.length} lyric lines from lrclib.net`);
+      } else {
+        alert('Lyrics fetched but failed to parse. Please check the format.');
+      }
+    } catch (err) {
+      console.error('Failed to auto-fill lyrics:', err);
+      alert('Failed to fetch lyrics. Please try manually entering them.');
+    } finally {
+      setFetchingLyrics(false);
+    }
   };
 
   // Load MIDI file from upload
@@ -289,7 +373,8 @@ const HostPage: React.FC = () => {
     // Notify clients
     socketClient.startGame(songConfig);
 
-    // Start YouTube playback
+    // Start YouTube playback - unmute first to handle autoplay policies
+    ytPlayerRef.current.unMute();
     ytPlayerRef.current.playVideo();
     gameStartTimeRef.current = performance.now();
 
@@ -320,9 +405,23 @@ const HostPage: React.FC = () => {
         currentTime
       );
 
-      // Update current lyric
+      // Update current lyric and next lyric
       const lyric = getLyricAtTime(lyrics, currentTime);
       setCurrentLyric(lyric?.text || '');
+
+      // Find next lyric
+      if (lyrics.length > 0) {
+        const currentIndex = lyrics.findIndex(l => l === lyric);
+        if (currentIndex >= 0 && currentIndex < lyrics.length - 1) {
+          setNextLyric(lyrics[currentIndex + 1].text);
+        } else if (currentIndex === -1 && lyrics.length > 0) {
+          // Before first lyric, show first lyric as next
+          const firstUpcoming = lyrics.find(l => l.time > currentTime);
+          setNextLyric(firstUpcoming?.text || '');
+        } else {
+          setNextLyric('');
+        }
+      }
 
       // Broadcast state to clients
       socketClient.sendGameStateUpdate(newState);
@@ -515,12 +614,25 @@ const HostPage: React.FC = () => {
               rows={4}
               className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 font-mono text-xs md:text-sm resize-y"
             />
-            <button
-              onClick={loadLyrics}
-              className="mt-2 bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded font-bold text-sm md:text-base w-full md:w-auto"
-            >
-              Parse Lyrics
-            </button>
+            <div className="flex gap-2 mt-2 flex-col md:flex-row">
+              <button
+                onClick={autoFillLyrics}
+                disabled={!youtubeId || fetchingLyrics}
+                className={`px-4 py-2 rounded font-bold text-sm md:text-base flex-1 ${
+                  youtubeId && !fetchingLyrics
+                    ? 'bg-green-600 hover:bg-green-500'
+                    : 'bg-gray-700 cursor-not-allowed'
+                }`}
+              >
+                {fetchingLyrics ? '⏳ Fetching...' : '🔍 Auto-fill from lrclib.net'}
+              </button>
+              <button
+                onClick={loadLyrics}
+                className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded font-bold text-sm md:text-base flex-1 md:flex-initial"
+              >
+                Parse Lyrics
+              </button>
+            </div>
             {lyrics.length > 0 && (
               <p className="text-sm text-green-500 mt-2">
                 ✅ Loaded {lyrics.length} lyric lines
@@ -582,8 +694,16 @@ const HostPage: React.FC = () => {
 
         {/* Center info */}
         <div className="flex flex-col items-center gap-4">
-          <div className="bg-black/80 border-2 border-cyan-500 p-4 rounded-lg max-w-xs text-center">
-            <p className="text-lg font-bold uppercase">{currentLyric || '♪ ♪ ♪'}</p>
+          <div className="bg-black/80 border-2 border-cyan-500 p-4 rounded-lg max-w-md text-center">
+            <p className="text-xs text-gray-400 mb-1">NOW</p>
+            <p className="text-lg font-bold uppercase text-cyan-400">{currentLyric || '♪ ♪ ♪'}</p>
+            {nextLyric && (
+              <>
+                <div className="border-t border-gray-700 my-2"></div>
+                <p className="text-xs text-gray-400 mb-1">NEXT</p>
+                <p className="text-sm text-gray-300">{nextLyric}</p>
+              </>
+            )}
           </div>
           
           <div className="flex gap-8 text-sm">

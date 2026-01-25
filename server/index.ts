@@ -39,6 +39,37 @@ app.get('/api/midi-files', async (req, res) => {
   }
 });
 
+// API endpoint to fetch lyrics from lrclib.net (proxy to avoid CORS)
+app.get('/api/lyrics/search', async (req, res) => {
+  try {
+    const { title, artist } = req.query;
+
+    if (!title) {
+      res.status(400).json({ error: 'Title parameter is required' });
+      return;
+    }
+
+    const params = new URLSearchParams({ track_name: title as string });
+    if (artist) {
+      params.append('artist_name', artist as string);
+    }
+
+    const response = await fetch(`https://lrclib.net/api/search?${params.toString()}`);
+
+    if (!response.ok) {
+      console.error('LRCLib API error:', response.status);
+      res.status(response.status).json({ error: 'Failed to fetch from lrclib.net' });
+      return;
+    }
+
+    const results = await response.json();
+    res.json(results);
+  } catch (error) {
+    console.error('Failed to fetch lyrics:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ============ SESSION STATE ============
 interface SessionState {
   hostSocketId: string | null;

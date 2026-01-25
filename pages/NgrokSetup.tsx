@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Globe, Copy, Check } from 'lucide-react';
+import QRCode from 'react-qr-code';
 
 const NgrokSetup: React.FC = () => {
   const [ngrokUrls, setNgrokUrls] = useState<{ serverUrl: string; clientUrl: string } | null>(null);
@@ -63,6 +64,25 @@ const NgrokSetup: React.FC = () => {
           </p>
 
           <div className="space-y-3">
+            {/* QR Codes for Players */}
+            <div className="bg-black/30 rounded p-4 mb-4">
+              <h4 className="text-sm font-bold text-cyan-400 mb-3 text-center">Scan to Join</h4>
+              <div className="flex justify-around items-center gap-4">
+                <div className="text-center">
+                  <div className="bg-white p-2 rounded mb-2">
+                    <QRCode value={`${ngrokUrls.clientUrl}/client?p=1`} size={120} />
+                  </div>
+                  <span className="text-xs text-gray-300">Player 1</span>
+                </div>
+                <div className="text-center">
+                  <div className="bg-white p-2 rounded mb-2">
+                    <QRCode value={`${ngrokUrls.clientUrl}/client?p=2`} size={120} />
+                  </div>
+                  <span className="text-xs text-gray-300">Player 2</span>
+                </div>
+              </div>
+            </div>
+
             {/* Host URL */}
             <div className="bg-black/30 rounded p-3">
               <div className="flex items-center justify-between mb-1">

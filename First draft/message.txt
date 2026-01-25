@@ -1,0 +1,449 @@
+# Karaoke Fighter — FULL BUILD PACK (Web + YouTube + 2 iPhones as 2 Mics + Lyrics + Street-Fighter HP)
+
+> You asked for “the whole thing” so Claude can implement. This is a complete, end-to-end build plan + file tree + core code skeletons (server + host + mic + lyrics + pitch stability + Phaser fight + HP bars + quarter logic).
+
+---
+
+## What you’re building (MVP)
+- **Laptop** opens `/host`:
+  - Pastes **YouTube karaoke link**
+  - Loads **LRC timed lyrics** (paste/upload OR fetch later)
+  - Shows **Phaser fight scene** with **HP bars**
+  - Splits song into **4 equal quarters** based on YouTube duration
+  - Displays current lyric line at bottom
+  - Shows who is **ATTACK** (singer) vs **DEFEND**
+  - Receives `p1Score` and `p2Score` from two phones
+  - Applies damage every tick (0.5s) using attacker score
+
+- **iPhone #1** opens `/mic?p=1` and **iPhone #2** opens `/mic?p=2`:
+  - Asks mic permission
+  - Computes a **pitch stability score** (0–1)
+  - Streams score to host via WebSocket
+
+### Hard Rules
+- iPhone mic requires **HTTPS** (use ngrok).
+- **Lyrics must exist**: game cannot start unless LRC loaded and parsed.
+- YouTube provides playback + timestamps; do NOT try to rip audio.
+
+---
+
+# 0) Tech Choices (pick these)
+- Node.js server + Express
+- WebSockets via `socket.io` (easiest)
+- Frontend: vanilla HTML/CSS/JS (keep hackathon simple)
+- Phaser 3 for fighting scene
+- YouTube IFrame API for karaoke playback
+
+---
+
+# 1) File Tree (copy this)
+
+karaoke-fighter/
+server/
+package.json
+index.js
+client/
+host.html
+mic.html
+style.css
+host.js
+mic.js
+shared.js
+phaserScene.js
+assets/
+bg.png
+p1.png
+p2.png
+lyrics/
+sample.lrc
+
+---
+
+# 2) Server (Express + socket.io)
+## server/package.json
+```json
+{
+  "name": "karaoke-fighter",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}
+
+server/index.js
+
+import express from "express";
+import http from "http";
+import path from "path";
+import { fileURLToPath } from "url";
+import { Server } from "socket.io";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+// Serve static client files
+app.use(express.static(path.join(__dirname, "../client")));
+
+// Routes
+app.get("/host", (_, res) => res.sendFile(path.join(__dirname, "../client/host.html")));
+app.get("/mic", (_, res) => res.sendFile(path.join(__dirname, "../client/mic.html")));
+
+// Socket routing
+let hostSocketId = null;
+
+io.on("connection", (socket) => {
+  socket.on("registerHost", () => {
+    hostSocketId = socket.id;
+    socket.emit("hostRegistered", { ok: true });
+  });
+
+  socket.on("registerMic", ({ player }) => {
+    socket.data.player = player;
+    socket.emit("micRegistered", { ok: true, player });
+    if (hostSocketId) io.to(hostSocketId).emit("micStatus", { player, connected: true });
+  });
+
+  socket.on("score", ({ player, score }) => {
+    if (hostSocketId) io.to(hostSocketId).emit("score", { player, score });
+  });
+
+  socket.on("disconnect", () => {
+    if (socket.id === hostSocketId) hostSocketId = null;
+    const p = socket.data.player;
+    if (p && hostSocketId) io.to(hostSocketId).emit("micStatus", { player: p, connected: false });
+  });
+});
+
+const PORT = process.env.PORT || 5173;
+server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+
+
+⸻
+
+3) Host Page (YouTube + Lyrics + Phaser + HP + Quarters)
+
+client/host.html
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Karaoke Fighter - Host</title>
+  <link rel="stylesheet" href="/style.css"/>
+</head>
+<body class="host">
+  <header class="topbar">
+    <div class="controls">
+      <input id="ytUrl" placeholder="Paste YouTube karaoke link..." />
+      <button id="loadYt">Load YouTube</button>
+      <button id="startFight" disabled>Start Fight</button>
+    </div>
+
+    <div class="status">
+      <div>Time: <span id="tNow">0.00</span>s</div>
+      <div>Duration: <span id="tDur">0.00</span>s</div>
+      <div>Quarter: <span id="quarter">-</span></div>
+      <div class="turn" id="turnLabel">Load video + lyrics</div>
+    </div>
+
+    <div class="scores">
+      <div>P1 mic: <span id="p1Mic">❌</span> | Score: <span id="p1Score">0.00</span></div>
+      <div>P2 mic: <span id="p2Mic">❌</span> | Score: <span id="p2Score">0.00</span></div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="left">
+      <div class="panel">
+        <h3>Lyrics (LRC required)</h3>
+        <textarea id="lrcInput" placeholder="Paste .lrc here..."></textarea>
+        <div class="row">
+          <input type="file" id="lrcFile" accept=".lrc,text/plain"/>
+          <button id="loadLrc">Load Lyrics</button>
+        </div>
+        <div class="hint">
+          Game won’t start unless LRC loaded successfully.
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>YouTube Player</h3>
+        <div id="player"></div>
+      </div>
+    </section>
+
+    <section class="right">
+      <div class="panel">
+        <h3>Fight Scene</h3>
+        <div id="phaserMount"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="lyricsBar">
+    <div id="lyricsLine">Load lyrics to begin…</div>
+  </footer>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script type="module" src="/host.js"></script>
+</body>
+</html>
+
+client/style.css (minimal)
+
+body { margin:0; font-family: system-ui, -apple-system, Arial; background:#0b0f14; color:#e8eef6; }
+.topbar { padding:12px; background:#111926; display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap; }
+.controls { display:flex; gap:8px; align-items:center; }
+.controls input { width:320px; padding:8px; border-radius:8px; border:1px solid #2b3a52; background:#0b0f14; color:#e8eef6; }
+.controls button { padding:8px 12px; border-radius:8px; border:1px solid #2b3a52; background:#162235; color:#e8eef6; cursor:pointer; }
+.controls button:disabled { opacity:0.5; cursor:not-allowed; }
+.status, .scores { display:flex; flex-direction:column; gap:4px; }
+.turn { font-weight:700; margin-top:6px; }
+.layout { display:grid; grid-template-columns: 1fr 1fr; gap:12px; padding:12px; }
+.panel { background:#0f1724; border:1px solid #22314a; border-radius:12px; padding:12px; }
+textarea { width:100%; height:140px; background:#0b0f14; color:#e8eef6; border:1px solid #2b3a52; border-radius:10px; padding:10px; }
+.row { display:flex; gap:8px; align-items:center; margin-top:8px; }
+#player { width:100%; aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden; }
+#phaserMount canvas { border-radius:12px; border:1px solid #22314a; }
+.lyricsBar { position:fixed; left:0; right:0; bottom:0; padding:14px; background:rgba(0,0,0,0.65); border-top:1px solid #22314a; }
+#lyricsLine { font-size:22px; text-align:center; font-weight:700; }
+.hint { font-size:12px; opacity:0.8; margin-top:8px; }
+
+
+⸻
+
+4) Shared Utilities (YouTube ID + LRC Parser)
+
+client/shared.js
+
+export function extractYouTubeId(url) {
+  // supports youtu.be/<id> or youtube.com/watch?v=<id> or embed/<id>
+  try {
+    const u = new URL(url.trim());
+    if (u.hostname.includes("youtu.be")) return u.pathname.slice(1);
+    if (u.searchParams.get("v")) return u.searchParams.get("v");
+    const parts = u.pathname.split("/").filter(Boolean);
+    const embedIndex = parts.indexOf("embed");
+    if (embedIndex >= 0 && parts[embedIndex+1]) return parts[embedIndex+1];
+  } catch {}
+  return null;
+}
+
+export function parseLRC(lrcText) {
+  // Returns sorted array: [{t: secondsFloat, text}]
+  // LRC lines: [mm:ss.xx] lyric text
+  const lines = [];
+  const raw = lrcText.split(/\r?\n/);
+  const timeRe = /$begin:math:display$\(\\d\{1\,2\}\)\:\(\\d\{2\}\)\(\?\:\\\.\(\\d\{1\,2\}\)\)\?$end:math:display$/g;
+
+  for (const line of raw) {
+    let match;
+    let text = line.replace(timeRe, "").trim();
+    while ((match = timeRe.exec(line)) !== null) {
+      const mm = parseInt(match[1], 10);
+      const ss = parseInt(match[2], 10);
+      const xx = match[3] ? parseInt(match[3], 10) : 0;
+      const t = mm * 60 + ss + (xx / (match[3]?.length === 1 ? 10 : 100));
+      lines.push({ t, text });
+    }
+  }
+  lines.sort((a,b) => a.t - b.t);
+  return lines.filter(x => Number.isFinite(x.t));
+}
+
+export function currentLyricAtTime(lines, t) {
+  if (!lines?.length) return "";
+  // simple linear scan from end could be optimized (binary search)
+  let best = "";
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].t <= t) best = lines[i].text;
+    else break;
+  }
+  return best;
+}
+
+
+⸻
+
+5) Phaser Scene (fighters + HP bars + animations)
+
+client/phaserScene.js
+
+export function createPhaserGame({ mountId, onReady }) {
+  let sceneRef;
+
+  const config = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 450,
+    parent: mountId,
+    backgroundColor: "#000000",
+    scene: {
+      preload,
+      create,
+      update
+    }
+  };
+
+  const game = new Phaser.Game(config);
+
+  function preload() {
+    this.load.image("bg", "/assets/bg.png");
+    // You MUST provide sprite sheets with frame sizes matching your assets
+    this.load.spritesheet("p1", "/assets/p1.png", { frameWidth: 80, frameHeight: 80 });
+    this.load.spritesheet("p2", "/assets/p2.png", { frameWidth: 80, frameHeight: 80 });
+  }
+
+  function create() {
+    sceneRef = this;
+
+    this.add.image(400, 225, "bg").setScale(1.0);
+
+    // Fighters
+    this.p1 = this.add.sprite(220, 320, "p1").setScale(2);
+    this.p2 = this.add.sprite(580, 320, "p2").setScale(2).setFlipX(true);
+
+    // Animations (adjust frame ranges to match your sprite sheet)
+    this.anims.create({ key: "p1-idle", frames: this.anims.generateFrameNumbers("p1", { start: 0, end: 3 }), frameRate: 8, repeat: -1 });
+    this.anims.create({ key: "p1-punch", frames: this.anims.generateFrameNumbers("p1", { start: 4, end: 7 }), frameRate: 12 });
+    this.anims.create({ key: "p1-hit", frames: this.anims.generateFrameNumbers("p1", { start: 8, end: 11 }), frameRate: 12 });
+    this.anims.create({ key: "p1-block", frames: this.anims.generateFrameNumbers("p1", { start: 12, end: 15 }), frameRate: 12 });
+
+    this.anims.create({ key: "p2-idle", frames: this.anims.generateFrameNumbers("p2", { start: 0, end: 3 }), frameRate: 8, repeat: -1 });
+    this.anims.create({ key: "p2-punch", frames: this.anims.generateFrameNumbers("p2", { start: 4, end: 7 }), frameRate: 12 });
+    this.anims.create({ key: "p2-hit", frames: this.anims.generateFrameNumbers("p2", { start: 8, end: 11 }), frameRate: 12 });
+    this.anims.create({ key: "p2-block", frames: this.anims.generateFrameNumbers("p2", { start: 12, end: 15 }), frameRate: 12 });
+
+    this.p1.play("p1-idle");
+    this.p2.play("p2-idle");
+
+    // HP
+    this.p1HP = 100;
+    this.p2HP = 100;
+
+    const BAR_W = 300, BAR_H = 18;
+
+    // Background bars
+    this.add.rectangle(40, 30, BAR_W, BAR_H, 0x222222).setOrigin(0, 0.5);
+    this.add.rectangle(760, 30, BAR_W, BAR_H, 0x222222).setOrigin(1, 0.5);
+
+    // Fill bars
+    this.p1Bar = this.add.rectangle(40, 30, BAR_W, BAR_H, 0xff0000).setOrigin(0, 0.5);
+    this.p2Bar = this.add.rectangle(760, 30, BAR_W, BAR_H, 0xff0000).setOrigin(1, 0.5);
+
+    this.add.text(40, 6, "P1", { fontSize: "14px", color: "#fff" });
+    this.add.text(760, 6, "P2", { fontSize: "14px", color: "#fff" }).setOrigin(1, 0);
+
+    this.koText = this.add.text(400, 180, "", { fontSize: "72px", color: "#fff" }).setOrigin(0.5);
+    this.gameOver = false;
+
+    // Attack API exposed to host.js
+    this.doAttack = ({ attacker, score }) => {
+      if (this.gameOver) return;
+
+      const isP1 = attacker === 1;
+      const atk = isP1 ? this.p1 : this.p2;
+      const def = isP1 ? this.p2 : this.p1;
+
+      const base = 3, bonus = 12;
+      let damage = base + bonus * score;
+
+      let blocked = false;
+      if (score < 0.35) {
+        blocked = true;
+        damage *= 0.4;
+      }
+
+      if (isP1) this.p2HP = Math.max(0, this.p2HP - damage);
+      else this.p1HP = Math.max(0, this.p1HP - damage);
+
+      this.updateBars();
+
+      // Animations
+      atk.play(isP1 ? "p1-punch" : "p2-punch");
+      def.play(blocked ? (isP1 ? "p2-block" : "p1-block") : (isP1 ? "p2-hit" : "p1-hit"));
+
+      // “Street Fighter feel”
+      const strong = score > 0.8;
+      this.cameras.main.shake(80, strong ? 0.01 : 0.004);
+
+      atk.once("animationcomplete", () => atk.play(isP1 ? "p1-idle" : "p2-idle"));
+      def.once("animationcomplete", () => def.play(isP1 ? "p2-idle" : "p1-idle"));
+
+      // KO
+      if (this.p1HP <= 0 || this.p2HP <= 0) {
+        this.gameOver = true;
+        this.koText.setText("KO");
+      }
+    };
+
+    this.updateBars = () => {
+      this.p1Bar.width = 300 * (this.p1HP / 100);
+      this.p2Bar.width = 300 * (this.p2HP / 100);
+    };
+
+    if (onReady) onReady(this);
+  }
+
+  function update() {}
+
+  return {
+    getScene: () => sceneRef
+  };
+}
+
+
+⸻
+
+6) Host Logic (YouTube + quarters + lyrics + sockets + attack ticks)
+
+client/host.js
+
+import { extractYouTubeId, parseLRC, currentLyricAtTime } from "./shared.js";
+import { createPhaserGame } from "./phaserScene.js";
+
+const socket = io();
+socket.emit("registerHost");
+
+const ytUrl = document.getElementById("ytUrl");
+const loadYtBtn = document.getElementById("loadYt");
+const startBtn = document.getElementById("startFight");
+
+const tNowEl = document.getElementById("tNow");
+const tDurEl = document.getElementById("tDur");
+const quarterEl = document.getElementById("quarter");
+const turnLabel = document.getElementById("turnLabel");
+
+const p1MicEl = document.getElementById("p1Mic");
+const p2MicEl = document.getElementById("p2Mic");
+const p1ScoreEl = document.getElementById("p1Score");
+const p2ScoreEl = document.getElementById("p2Score");
+
+const lyricsLineEl = document.getElementById("lyricsLine");
+const lrcInput = document.getElementById("lrcInput");
+const lrcFile = document.getElementById("lrcFile");
+const loadLrcBtn = document.getElementById("loadLrc");
+
+let p1Score = 0;
+let p2Score = 0;
+let micConnected = { 1: false, 2: false };
+
+let lrcLines = [];
+let lyricsLoaded = false;
+
+let ytPlayer = null;
+let ytReady = false;
+let duration

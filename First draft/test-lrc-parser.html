@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LRC Parser Tester</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      color: #333;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+
+    header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      opacity: 0.9;
+      font-size: 1.1em;
+    }
+
+    .content {
+      padding: 30px;
+    }
+
+    .section {
+      margin-bottom: 30px;
+    }
+
+    .section-title {
+      font-size: 1.3em;
+      color: #667eea;
+      margin-bottom: 15px;
+      font-weight: 600;
+    }
+
+    textarea {
+      width: 100%;
+      height: 200px;
+      padding: 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      resize: vertical;
+      transition: border-color 0.3s;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    textarea.success {
+      border-color: #4caf50;
+      background: #f1f8f4;
+    }
+
+    textarea.error {
+      border-color: #f44336;
+      background: #fef1f1;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .btn-play {
+      background: #4caf50;
+      color: white;
+      flex: 1;
+    }
+
+    .btn-play:hover {
+      background: #45a049;
+    }
+
+    .btn-play.playing {
+      background: #ff9800;
+    }
+
+    .playback-control {
+      background: #f9f9f9;
+      padding: 20px;
+      border-radius: 8px;
+      border: 2px solid #e0e0e0;
+    }
+
+    .time-display {
+      text-align: center;
+      font-size: 2em;
+      font-weight: bold;
+      color: #667eea;
+      margin-bottom: 15px;
+    }
+
+    .slider-container {
+      margin: 20px 0;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 8px;
+      border-radius: 5px;
+      background: #d3d3d3;
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #667eea;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #667eea;
+      cursor: pointer;
+      border: none;
+    }
+
+    .current-lyric {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      border-radius: 8px;
+      text-align: center;
+      min-height: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8em;
+      font-weight: 600;
+      line-height: 1.4;
+      margin-top: 20px;
+    }
+
+    .current-lyric.empty {
+      opacity: 0.5;
+      font-style: italic;
+      font-size: 1.2em;
+    }
+
+    .parsed-preview {
+      background: #f9f9f9;
+      padding: 20px;
+      border-radius: 8px;
+      border: 2px solid #e0e0e0;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .lyric-line {
+      padding: 8px;
+      margin: 4px 0;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+    }
+
+    .lyric-line.active {
+      background: #667eea;
+      color: white;
+      font-weight: bold;
+    }
+
+    .stats {
+      display: flex;
+      gap: 20px;
+      margin-top: 15px;
+      padding: 15px;
+      background: #e3f2fd;
+      border-radius: 8px;
+    }
+
+    .stat {
+      flex: 1;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 2em;
+      font-weight: bold;
+      color: #667eea;
+    }
+
+    .stat-label {
+      font-size: 0.9em;
+      color: #666;
+      margin-top: 5px;
+    }
+
+    .info-box {
+      background: #fff3cd;
+      border: 2px solid #ffc107;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .info-box strong {
+      color: #856404;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎤 LRC Parser Tester</h1>
+      <p class="subtitle">Test and validate your timestamped lyrics</p>
+    </header>
+
+    <div class="content">
+      <div class="info-box">
+        <strong>How to use:</strong> Paste LRC lyrics below (format: [mm:ss.xx] lyric text), then use the time slider to see which lyric appears at that moment.
+      </div>
+
+      <div class="section">
+        <h2 class="section-title">📝 LRC Lyrics Input</h2>
+        <textarea id="lrcInput" placeholder="Paste LRC lyrics here...
+Example:
+[00:17.50] We're no strangers to love
+[00:21.80] You know the rules and so do I
+[00:25.90] A full commitment's what I'm thinking of">[ar:Rick Astley]
+[ti:Never Gonna Give You Up]
+[00:00.00]
+[00:17.50] We're no strangers to love
+[00:21.80] You know the rules and so do I
+[00:25.90] A full commitment's what I'm thinking of
+[00:30.20] You wouldn't get this from any other guy
+[00:34.80] I just wanna tell you how I'm feeling
+[00:39.40] Gotta make you understand
+[00:43.20] Never gonna give you up
+[00:45.50] Never gonna let you down
+[00:47.80] Never gonna run around and desert you
+[00:52.10] Never gonna make you cry
+[00:54.40] Never gonna say goodbye
+[00:56.70] Never gonna tell a lie and hurt you</textarea>
+
+        <div class="button-group">
+          <button class="btn-primary" onclick="parseLyrics()">Parse Lyrics</button>
+          <button class="btn-secondary" onclick="clearLyrics()">Clear</button>
+        </div>
+
+        <div class="stats" id="stats" style="display: none;">
+          <div class="stat">
+            <div class="stat-value" id="lineCount">0</div>
+            <div class="stat-label">Lines Parsed</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="duration">0:00</div>
+            <div class="stat-label">Song Duration</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="status">✓</div>
+            <div class="stat-label">Status</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2 class="section-title">⏯️ Playback Simulation</h2>
+        <div class="playback-control">
+          <div class="time-display" id="timeDisplay">0:00</div>
+
+          <div class="slider-container">
+            <input type="range" id="timeSlider" min="0" max="180" value="0" step="0.1" oninput="onTimeChange()">
+          </div>
+
+          <div class="button-group">
+            <button class="btn-play" id="playBtn" onclick="togglePlay()">▶ Play</button>
+            <button class="btn-secondary" onclick="resetTime()">↺ Reset</button>
+          </div>
+
+          <div class="current-lyric empty" id="currentLyric">
+            Parse lyrics to begin...
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2 class="section-title">📋 Parsed Lyrics Preview</h2>
+        <div class="parsed-preview" id="parsedPreview">
+          <div style="text-align: center; color: #999;">Parsed lyrics will appear here...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Global state
+    let parsedLyrics = [];
+    let isPlaying = false;
+    let playInterval = null;
+
+    // LRC Parser Function (FIXED - regex syntax corrected)
+    function parseLRC(lrcText) {
+      // Returns sorted array: [{t: secondsFloat, text}]
+      // LRC lines: [mm:ss.xx] lyric text
+      const lines = [];
+      const raw = lrcText.split(/\r?\n/);
+      // FIXED REGEX: Changed from $begin:math:display$ to proper brackets
+      const timeRe = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,2}))?\]/g;
+
+      for (const line of raw) {
+        let match;
+        const matches = [];
+
+        // Find all timestamps in this line
+        while ((match = timeRe.exec(line)) !== null) {
+          matches.push(match);
+        }
+
+        // Get text after removing all timestamps
+        let text = line.replace(timeRe, "").trim();
+
+        // Skip metadata tags and empty lines
+        if (text.startsWith('[') || text === '') {
+          continue;
+        }
+
+        // Add entry for each timestamp found
+        for (const m of matches) {
+          const mm = parseInt(m[1], 10);
+          const ss = parseInt(m[2], 10);
+          const xx = m[3] ? parseInt(m[3], 10) : 0;
+          const t = mm * 60 + ss + (xx / (m[3]?.length === 1 ? 10 : 100));
+          lines.push({ t, text });
+        }
+      }
+
+      lines.sort((a, b) => a.t - b.t);
+      return lines.filter(x => Number.isFinite(x.t));
+    }
+
+    // Find current lyric at given time
+    function currentLyricAtTime(lines, t) {
+      if (!lines?.length) return "";
+
+      let best = "";
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].t <= t) {
+          best = lines[i].text;
+        } else {
+          break;
+        }
+      }
+      return best;
+    }
+
+    // Format seconds to mm:ss
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // Parse lyrics button handler
+    function parseLyrics() {
+      const input = document.getElementById('lrcInput');
+      const lrcText = input.value;
+
+      try {
+        parsedLyrics = parseLRC(lrcText);
+
+        if (parsedLyrics.length === 0) {
+          throw new Error('No valid lyrics found');
+        }
+
+        // Update UI - success
+        input.classList.remove('error');
+        input.classList.add('success');
+
+        // Update stats
+        document.getElementById('stats').style.display = 'flex';
+        document.getElementById('lineCount').textContent = parsedLyrics.length;
+
+        const maxTime = parsedLyrics[parsedLyrics.length - 1].t;
+        document.getElementById('duration').textContent = formatTime(maxTime);
+        document.getElementById('status').textContent = '✓';
+        document.getElementById('status').style.color = '#4caf50';
+
+        // Update slider max
+        document.getElementById('timeSlider').max = Math.ceil(maxTime);
+
+        // Display parsed lyrics
+        displayParsedLyrics();
+
+        // Update current lyric
+        onTimeChange();
+
+      } catch (error) {
+        // Update UI - error
+        input.classList.remove('success');
+        input.classList.add('error');
+
+        document.getElementById('status').textContent = '✗';
+        document.getElementById('status').style.color = '#f44336';
+
+        alert('Error parsing lyrics: ' + error.message);
+      }
+    }
+
+    // Display all parsed lyrics
+    function displayParsedLyrics() {
+      const preview = document.getElementById('parsedPreview');
+
+      if (parsedLyrics.length === 0) {
+        preview.innerHTML = '<div style="text-align: center; color: #999;">No lyrics parsed yet...</div>';
+        return;
+      }
+
+      preview.innerHTML = parsedLyrics.map((line, idx) => {
+        return `<div class="lyric-line" data-index="${idx}">
+          <strong>${formatTime(line.t)}</strong> ${line.text}
+        </div>`;
+      }).join('');
+    }
+
+    // Update current lyric display
+    function onTimeChange() {
+      const slider = document.getElementById('timeSlider');
+      const currentTime = parseFloat(slider.value);
+
+      // Update time display
+      document.getElementById('timeDisplay').textContent = formatTime(currentTime);
+
+      // Find and display current lyric
+      const lyric = currentLyricAtTime(parsedLyrics, currentTime);
+      const lyricEl = document.getElementById('currentLyric');
+
+      if (lyric) {
+        lyricEl.textContent = lyric;
+        lyricEl.classList.remove('empty');
+      } else {
+        lyricEl.textContent = 'No lyric at this time...';
+        lyricEl.classList.add('empty');
+      }
+
+      // Highlight active lyric in preview
+      const lines = document.querySelectorAll('.lyric-line');
+      lines.forEach(line => line.classList.remove('active'));
+
+      for (let i = parsedLyrics.length - 1; i >= 0; i--) {
+        if (parsedLyrics[i].t <= currentTime) {
+          const activeLine = document.querySelector(`[data-index="${i}"]`);
+          if (activeLine) {
+            activeLine.classList.add('active');
+            activeLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          break;
+        }
+      }
+    }
+
+    // Toggle play/pause
+    function togglePlay() {
+      isPlaying = !isPlaying;
+      const btn = document.getElementById('playBtn');
+
+      if (isPlaying) {
+        btn.textContent = '⏸ Pause';
+        btn.classList.add('playing');
+
+        playInterval = setInterval(() => {
+          const slider = document.getElementById('timeSlider');
+          const newValue = parseFloat(slider.value) + 0.1;
+
+          if (newValue > parseFloat(slider.max)) {
+            togglePlay(); // Auto-stop at end
+            return;
+          }
+
+          slider.value = newValue;
+          onTimeChange();
+        }, 100);
+      } else {
+        btn.textContent = '▶ Play';
+        btn.classList.remove('playing');
+        clearInterval(playInterval);
+      }
+    }
+
+    // Reset time to 0
+    function resetTime() {
+      if (isPlaying) {
+        togglePlay();
+      }
+      document.getElementById('timeSlider').value = 0;
+      onTimeChange();
+    }
+
+    // Clear lyrics
+    function clearLyrics() {
+      document.getElementById('lrcInput').value = '';
+      document.getElementById('lrcInput').classList.remove('success', 'error');
+      parsedLyrics = [];
+      document.getElementById('stats').style.display = 'none';
+      document.getElementById('parsedPreview').innerHTML = '<div style="text-align: center; color: #999;">Parsed lyrics will appear here...</div>';
+      document.getElementById('currentLyric').textContent = 'Parse lyrics to begin...';
+      document.getElementById('currentLyric').classList.add('empty');
+      resetTime();
+    }
+
+    // Auto-parse on page load
+    window.addEventListener('load', () => {
+      parseLyrics();
+    });
+  </script>
+</body>
+</html>

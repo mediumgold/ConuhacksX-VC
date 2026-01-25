@@ -59,9 +59,9 @@ const HostPage: React.FC = () => {
   const [currentLyric, setCurrentLyric] = useState('');
   const [nextLyric, setNextLyric] = useState('');
   
-  // Player pitches (received from clients)
-  const p1PitchRef = useRef(-1);
-  const p2PitchRef = useRef(-1);
+  // Player pitches (received from clients) - using state to trigger re-renders
+  const [p1Pitch, setP1Pitch] = useState(-1);
+  const [p2Pitch, setP2Pitch] = useState(-1);
   
   // YouTube player
   const ytPlayerRef = useRef<any>(null);
@@ -93,15 +93,13 @@ const HostPage: React.FC = () => {
     });
 
     socketClient.on('pitch_update', (data: { slot: 1 | 2; pitch: number }) => {
-      // Log occasionally to verify pitch data is being received
-      if (Math.random() < 0.02) {
-        console.log(`[Host] ✅ Received pitch from P${data.slot}:`, Math.round(data.pitch), 'Hz');
-      }
+      // Log every pitch to verify data is arriving
+      console.log(`[Host] 🎤 Received pitch from P${data.slot}:`, Math.round(data.pitch), 'Hz');
       
       if (data.slot === 1) {
-        p1PitchRef.current = data.pitch;
+        setP1Pitch(data.pitch);
       } else {
-        p2PitchRef.current = data.pitch;
+        setP2Pitch(data.pitch);
       }
     });
 
@@ -516,6 +514,7 @@ const HostPage: React.FC = () => {
     };
 
     // Notify clients first
+    console.log('[HostPage] Calling socketClient.startGame() to notify clients...');
     socketClient.startGame(songConfig);
 
     // Start YouTube playback BEFORE changing state (while player DOM still exists)
@@ -561,8 +560,8 @@ const HostPage: React.FC = () => {
       const { gameState: newState } = processGameTick(
         prevState,
         midiNotes,
-        p1PitchRef.current,
-        p2PitchRef.current,
+        p1Pitch,
+        p2Pitch,
         currentTime
       );
 
@@ -939,13 +938,13 @@ const HostPage: React.FC = () => {
                 <div className="text-center">
                   <p className="text-gray-500">P1 Pitch</p>
                   <p className="text-cyan-400 font-mono">
-                    {p1PitchRef.current > 0 ? `${Math.round(p1PitchRef.current)} Hz` : '—'}
+                    {p1Pitch > 0 ? `${Math.round(p1Pitch)} Hz` : '—'}
                   </p>
                 </div>
                 <div className="text-center">
                   <p className="text-gray-500">P2 Pitch</p>
                   <p className="text-cyan-400 font-mono">
-                    {p2PitchRef.current > 0 ? `${Math.round(p2PitchRef.current)} Hz` : '—'}
+                    {p2Pitch > 0 ? `${Math.round(p2Pitch)} Hz` : '—'}
                   </p>
                 </div>
               </div>
@@ -970,7 +969,7 @@ const HostPage: React.FC = () => {
                 lyrics: ''
               }))}
               currentTime={gameState.currentTime}
-              currentPitch={gameState.attackingPlayer === 1 ? p1PitchRef.current : p2PitchRef.current}
+              currentPitch={gameState.attackingPlayer === 1 ? p1Pitch : p2Pitch}
             />
           </div>
 

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Note, MidiNote } from '../types';
 
 interface KaraokeHighwayProps {
@@ -18,17 +18,21 @@ const KaraokeHighway: React.FC<KaraokeHighwayProps> = ({
   const VIEW_WINDOW = 5; // Seconds shown ahead
   const VIEW_BEHIND = 1; // Seconds shown behind
   
+  // Smoothed frequency range using refs to avoid jitter
+  const smoothMinFreqRef = useRef(0);
+  const smoothMaxFreqRef = useRef(600);
+  
   // Find notes within the view window
   const visibleNotes = notes.filter(n => 
     n.time >= currentTime - VIEW_BEHIND && 
     n.time <= currentTime + VIEW_WINDOW
   );
 
-  // Dynamic frequency range based on visible notes
+  // Calculate target frequency range based on visible notes
   const freqs = visibleNotes.map(n => n.pitch).filter(f => f > 0);
   
-  let minFreq = 0;
-  let maxFreq = 600; // Default range for low notes
+  let targetMinFreq = 0;
+  let targetMaxFreq = 600; // Default range for low notes
   
   if (freqs.length > 0) {
     const minNote = Math.min(...freqs);
@@ -36,20 +40,29 @@ const KaraokeHighway: React.FC<KaraokeHighwayProps> = ({
     
     // Add 20% padding above and below for better visibility
     const padding = (maxNote - minNote) * 0.2;
-    minFreq = Math.max(0, minNote - padding);
-    maxFreq = maxNote + padding;
+    targetMinFreq = Math.max(0, minNote - padding);
+    targetMaxFreq = maxNote + padding;
     
     // Ensure minimum range of 400 Hz for usability
-    if (maxFreq - minFreq < 400) {
-      const center = (maxFreq + minFreq) / 2;
-      minFreq = Math.max(0, center - 200);
-      maxFreq = center + 200;
+    if (targetMaxFreq - targetMinFreq < 400) {
+      const center = (targetMaxFreq + targetMinFreq) / 2;
+      targetMinFreq = Math.max(0, center - 200);
+      targetMaxFreq = center + 200;
     }
     
     // Round to nice numbers for cleaner display
-    minFreq = Math.floor(minFreq / 50) * 50;
-    maxFreq = Math.ceil(maxFreq / 50) * 50;
+    targetMinFreq = Math.floor(targetMinFreq / 50) * 50;
+    targetMaxFreq = Math.ceil(targetMaxFreq / 50) * 50;
   }
+  
+  // Smooth the frequency range using exponential moving average
+  // Higher smoothing factor = smoother but slower response
+  const smoothingFactor = 0.15;
+  smoothMinFreqRef.current += (targetMinFreq - smoothMinFreqRef.current) * smoothingFactor;
+  smoothMaxFreqRef.current += (targetMaxFreq - smoothMaxFreqRef.current) * smoothingFactor;
+  
+  const minFreq = smoothMinFreqRef.current;
+  const maxFreq = smoothMaxFreqRef.current;
 
   // Map frequency to vertical position
   const getTopPosition = (freq: number) => {

@@ -114,12 +114,17 @@ class SocketClient {
 
   // Start game (host only)
   startGame(songConfig: SongConfig) {
+    console.log('[SocketClient] Emitting start_game event, socket connected:', this.socket?.connected);
     this.socket?.emit('start_game', { songConfig } as HostStartGamePayload);
   }
 
   // Send pitch data (player only)
   sendPitchData(slot: PlayerSlot, pitch: number, timestamp: number, volume: number) {
-    this.socket?.emit('pitch_data', { slot, pitch, timestamp, volume } as PitchDataPayload);
+    if (!this.socket?.connected) {
+      console.warn('[SocketClient] Cannot send pitch - socket not connected');
+      return;
+    }
+    this.socket.emit('pitch_data', { slot, pitch, timestamp, volume } as PitchDataPayload);
   }
 
   // Send game state update (host only)

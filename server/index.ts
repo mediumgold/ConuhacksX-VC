@@ -260,14 +260,19 @@ io.on('connection', (socket: Socket) => {
 
   // Handle game start from host
   socket.on('start_game', (payload: HostStartGamePayload) => {
+    console.log(`[Server] Received start_game from socket ${socket.id}`);
+    console.log(`[Server] Session state: hostSocketId=${session.hostSocketId}, p1Ready=${session.p1Ready}, p2Ready=${session.p2Ready}`);
+    
     if (socket.id !== session.hostSocketId) {
+      console.log(`[Server] ❌ Rejected: socket ${socket.id} is not host ${session.hostSocketId}`);
       socket.emit('error', { message: 'Only host can start game' });
       return;
     }
 
+    // Allow starting even without ready for testing - just log warning
     if (!session.p1Ready || !session.p2Ready) {
-      socket.emit('error', { message: 'Both players must be ready' });
-      return;
+      console.log(`[Server] ⚠️ Warning: Starting game without all players ready (P1: ${session.p1Ready}, P2: ${session.p2Ready})`);
+      // Don't block - allow for testing
     }
 
     session.gameInProgress = true;
@@ -281,23 +286,23 @@ io.on('connection', (socket: Socket) => {
     });
 
     console.log(`[Server] ✅ Game started at ${session.gameStartTimestamp}`);
-    console.log(`[Server] Broadcasting game_start to all clients (P1: ${session.player1SocketId}, P2: ${session.player2SocketId}, Host: ${session.hostSocketId})`);
+    console.log(`[Server] ✅ Broadcasting game_start to ALL connected sockets`);
+    console.log(`[Server] Connected clients - P1: ${session.player1SocketId}, P2: ${session.player2SocketId}, Host: ${session.hostSocketId}`);
   });
 
   // Handle pitch data from clients
   socket.on('pitch_data', (payload: PitchDataPayload) => {
+    // Always log first few pitch data to verify connection
+    console.log(`[Server] 🎤 Pitch data received from socket ${socket.id}: P${payload.slot} = ${Math.round(payload.pitch)}Hz`);
+    
     if (!session.gameInProgress) {
-      console.log('[Server] Pitch data received but game not in progress');
+      console.log('[Server] ⚠️ Pitch data received but game not in progress (gameInProgress=false)');
       return;
-    }
-
-    // Log occasionally to verify pitch relay
-    if (Math.random() < 0.02) {
-      console.log(`[Server] ✅ Relaying pitch from P${payload.slot}:`, Math.round(payload.pitch), 'Hz to host ${session.hostSocketId}');
     }
 
     // Relay pitch data to host
     if (session.hostSocketId) {
+      console.log(`[Server] ✅ Relaying pitch from P${payload.slot}: ${Math.round(payload.pitch)}Hz to host ${session.hostSocketId}`);
       io.to(session.hostSocketId).emit('pitch_update', {
         slot: payload.slot,
         pitch: payload.pitch,

@@ -13,7 +13,7 @@ import type { LobbyState, GameState, MidiNote, LrcLine, SongConfig } from '../ty
 import Fighter from '../components/Fighter';
 import KaraokeHighway from '../components/KaraokeHighway';
 import NgrokSetup from './NgrokSetup';
-import { Mic, Users, Play, Upload, Music, FileText, Wifi, WifiOff } from 'lucide-react';
+import { Mic, Users, Play, Upload, Music, FileText, Wifi, WifiOff, ArrowLeft } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -662,6 +662,20 @@ const HostPage: React.FC = () => {
     }
   };
 
+  // Back to lobby - stop game and return to host menu
+  const backToLobby = () => {
+    if (gameLoopRef.current) {
+      cancelAnimationFrame(gameLoopRef.current);
+      gameLoopRef.current = null;
+    }
+    if (ytPlayerRef.current) {
+      ytPlayerRef.current.stopVideo();
+    }
+    setGameState(null);
+    setCurrentLyric('');
+    setNextLyric('');
+  };
+
   // Check if ready to start - requires YouTube, MIDI, and Lyrics
   const canStart = connected && 
     lobbyState.p1Connected && 
@@ -918,6 +932,15 @@ const HostPage: React.FC = () => {
       {/* Game View */}
       {(isPlaying || isGameOver) && gameState && (
         <div className="min-h-screen bg-black text-white flex flex-col items-center p-4 md:p-8 select-none">
+          {/* Back Button */}
+          <button
+            onClick={backToLobby}
+            className="absolute top-4 left-4 flex items-center gap-2 bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg text-white transition-colors z-20"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="text-sm font-medium">Back</span>
+          </button>
+
           {/* Header - Centered Title */}
           <div className="w-full max-w-5xl flex flex-col items-center mt-8 mb-6 z-10">
             <h1 className="text-4xl md:text-5xl font-black italic text-cyan-500 tracking-tighter">KARAOKE COMBAT</h1>

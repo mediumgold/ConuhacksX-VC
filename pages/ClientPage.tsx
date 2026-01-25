@@ -344,14 +344,14 @@ const ClientPage: React.FC = () => {
               <div className="bg-gray-900 rounded-lg p-4">
                 <div className="flex justify-between mb-2">
                   <span>Your HP</span>
-                  <span className="font-bold">{Math.round(myState.hp)}/100</span>
+                  <span className="font-bold">{Math.round(myState.hp)}/{myState.maxHp}</span>
                 </div>
                 <div className="h-4 bg-gray-800 rounded-full overflow-hidden">
                   <div 
                     className={`h-full transition-all duration-300 ${
-                      myState.hp > 50 ? 'bg-green-500' : myState.hp > 20 ? 'bg-yellow-500' : 'bg-red-500'
+                      (myState.hp / myState.maxHp * 100) > 50 ? 'bg-green-500' : (myState.hp / myState.maxHp * 100) > 20 ? 'bg-yellow-500' : 'bg-red-500'
                     }`}
-                    style={{ width: `${myState.hp}%` }}
+                    style={{ width: `${(myState.hp / myState.maxHp) * 100}%` }}
                   />
                 </div>
               </div>

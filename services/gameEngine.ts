@@ -3,9 +3,8 @@ import type { PlayerSlot, PlayerState, GameState, MidiNote } from '../types';
 import { getNoteAtTime } from './midiParser';
 
 // ============ CONSTANTS ============
-export const MAX_HP = 100;
-export const BASE_DAMAGE = 5;
-export const MAX_BONUS_DAMAGE = 15;
+export const DEFAULT_HP = 100;
+export const DAMAGE_PER_HIT = 2;
 export const PERFECT_THRESHOLD_CENTS = 10;
 export const GOOD_THRESHOLD_CENTS = 25;
 export const OK_THRESHOLD_CENTS = 50;
@@ -46,13 +45,9 @@ export function calculatePitchAccuracy(expectedPitch: number, actualPitch: numbe
 // ============ DAMAGE CALCULATION ============
 
 export function calculateDamage(accuracy: number): number {
-  // accuracy 0-1
-  // Perfect (1.0) = 20 damage
-  // Good (0.7) = 15.5 damage  
-  // OK (0.3) = 9.5 damage
-  // Miss (0) = 0 damage
+  // Flat 2 damage per successful hit (accuracy > 0)
   if (accuracy <= 0) return 0;
-  return BASE_DAMAGE + (MAX_BONUS_DAMAGE * accuracy);
+  return DAMAGE_PER_HIT;
 }
 
 // ============ SEGMENT LOGIC ============
@@ -78,11 +73,11 @@ export function getCurrentSegment(currentTime: number, songDuration: number): {
 
 // ============ PLAYER STATE ============
 
-export function createInitialPlayerState(slot: PlayerSlot, name: string): PlayerState {
+export function createInitialPlayerState(slot: PlayerSlot, name: string, maxHp: number = DEFAULT_HP): PlayerState {
   return {
     slot,
-    hp: MAX_HP,
-    maxHp: MAX_HP,
+    hp: maxHp,
+    maxHp: maxHp,
     score: 0,
     totalAccuracy: 0,
     notesHit: 0,
@@ -96,15 +91,18 @@ export function createInitialPlayerState(slot: PlayerSlot, name: string): Player
 
 // ============ GAME STATE ============
 
-export function createInitialGameState(songDuration: number): GameState {
+export function createInitialGameState(songDuration: number, noteCount: number = 100): GameState {
+  // HP equals the number of notes in the MIDI file
+  const maxHp = Math.max(noteCount, 10); // Minimum 10 HP
+  
   return {
     phase: GamePhase.LOBBY,
     currentTime: 0,
     songDuration,
     currentSegment: 1,
     attackingPlayer: 1,
-    player1: createInitialPlayerState(1, 'Player 1'),
-    player2: createInitialPlayerState(2, 'Player 2'),
+    player1: createInitialPlayerState(1, 'Player 1', maxHp),
+    player2: createInitialPlayerState(2, 'Player 2', maxHp),
     winner: null
   };
 }

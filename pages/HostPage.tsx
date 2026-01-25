@@ -553,13 +553,13 @@ const HostPage: React.FC = () => {
         console.warn('[HostPage] ⚠️ Could not determine song duration, using default 180s');
       }
       
-      console.log('[HostPage] Starting game with duration:', duration, 'seconds');
+      console.log('[HostPage] Starting game with duration:', duration, 'seconds, notes:', midiNotes.length);
       
-      // Initialize game state - this will trigger view switch
-      const initialState = createInitialGameState(duration);
+      // Initialize game state - HP equals number of MIDI notes
+      const initialState = createInitialGameState(duration, midiNotes.length);
       initialState.phase = GamePhase.PLAYING;
       setGameState(initialState);
-      console.log('[HostPage] Game state set to PLAYING');
+      console.log('[HostPage] Game state set to PLAYING, HP per player:', midiNotes.length);
     }, 100);
   };
 

@@ -32,6 +32,7 @@ const ClientPage: React.FC = () => {
   // Refs to avoid stale closure in mic loop
   const gameStartedRef = useRef(false);
   const assignedSlotRef = useRef<PlayerSlot | null>(null);
+  const frameCountRef = useRef(0);
 
   // Connect to server
   useEffect(() => {
@@ -152,25 +153,14 @@ const ClientPage: React.FC = () => {
       setCurrentPitch(pitch);
 
       // Send pitch data to server if game is active (use refs to avoid stale closure)
+      // Throttle to every 3rd frame (~20fps) for better performance
+      frameCountRef.current++;
       const isGameActive = gameStartedRef.current;
       const slot = assignedSlotRef.current;
+      const shouldSend = frameCountRef.current % 3 === 0;
       
-      if (isGameActive && slot && pitch > 0) {
-        // Log every 30 frames (~0.5 seconds at 60fps)
-        if (Math.random() < 0.033) {
-          console.log(`[Client P${slot}] ✅ Sending pitch:`, Math.round(pitch), 'Hz, volume:', rms.toFixed(3));
-        }
+      if (isGameActive && slot && pitch > 0 && shouldSend) {
         socketClient.sendPitchData(slot, pitch, Date.now(), rms);
-      } else if (pitch > 0) {
-        // Log if pitch detected but can't send
-        if (Math.random() < 0.01) {
-          console.log(`[Client] ⚠️ Pitch detected (${Math.round(pitch)}Hz) but NOT sending - gameStarted:${isGameActive}, assignedSlot:${slot}`);
-        }
-      }
-      
-      // Log if no pitch detected
-      if (pitch <= 0 && Math.random() < 0.005) {
-        console.log('[Client] No pitch detected (silence or noise)');
       }
 
       animationFrameRef.current = requestAnimationFrame(loop);

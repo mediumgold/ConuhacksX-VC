@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { Note, MidiNote } from '../types';
 
 interface KaraokeHighwayProps {
@@ -22,11 +22,13 @@ const KaraokeHighway: React.FC<KaraokeHighwayProps> = ({
   const smoothMinFreqRef = useRef(0);
   const smoothMaxFreqRef = useRef(600);
   
-  // Find notes within the view window
-  const visibleNotes = notes.filter(n => 
-    n.time >= currentTime - VIEW_BEHIND && 
-    n.time <= currentTime + VIEW_WINDOW
-  );
+  // Memoize visible notes calculation - only recalculate when notes or time changes significantly
+  const visibleNotes = useMemo(() => {
+    return notes.filter(n => 
+      n.time >= currentTime - VIEW_BEHIND && 
+      n.time <= currentTime + VIEW_WINDOW
+    );
+  }, [notes, Math.floor(currentTime * 10) / 10]); // Round time to 0.1s precision
 
   // Calculate target frequency range based on visible notes
   const freqs = visibleNotes.map(n => n.pitch).filter(f => f > 0);

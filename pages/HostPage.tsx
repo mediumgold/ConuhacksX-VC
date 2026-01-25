@@ -43,6 +43,12 @@ const HostPage: React.FC = () => {
   const [selectedMidiFile, setSelectedMidiFile] = useState('');
   const [fetchingLyrics, setFetchingLyrics] = useState(false);
   
+  // Dropdown data
+  const [youtubeLinks, setYoutubeLinks] = useState<{name: string; url: string}[]>([]);
+  const [selectedYoutubeLink, setSelectedYoutubeLink] = useState('');
+  const [lyricsFiles, setLyricsFiles] = useState<string[]>([]);
+  const [selectedLyricsFile, setSelectedLyricsFile] = useState('');
+  
   // Parsed data
   const [lyrics, setLyrics] = useState<LrcLine[]>([]);
   const [midiNotes, setMidiNotes] = useState<MidiNote[]>([]);
@@ -98,34 +104,61 @@ const HostPage: React.FC = () => {
       setConnected(false);
     });
 
-    // Fetch available MIDI files
-    const fetchMidiFiles = async () => {
-      try {
-        // Get server URL from sessionStorage or use localhost
-        let serverUrl = 'http://localhost:3001';
-        const stored = sessionStorage.getItem('ngrok-config');
-        if (stored) {
-          const config = JSON.parse(stored);
-          if (config.serverUrl) {
-            serverUrl = config.serverUrl;
-          }
-        }
-        const response = await fetch(`${serverUrl}/api/midi-files`);
-        const data = await response.json();
-        setAvailableMidiFiles(data.files || []);
-      } catch (err) {
-        console.error('Failed to fetch MIDI files:', err);
-      }
-    };
-
-    fetchMidiFiles();
-
     return () => {
       socketClient.disconnect();
       if (gameLoopRef.current) {
         cancelAnimationFrame(gameLoopRef.current);
       }
     };
+  }, []);
+
+  // Fetch dropdown data on mount
+  useEffect(() => {
+    const fetchAllData = async () => {
+      // Use relative URLs so Vite proxy can handle them
+      console.log('[HostPage] Fetching dropdown data...');
+
+      // Fetch MIDI files
+      try {
+        console.log('[HostPage] Fetching MIDI files from: /api/midi-files');
+        const midiRes = await fetch('/api/midi-files');
+        console.log('[HostPage] MIDI response status:', midiRes.status);
+        const midiData = await midiRes.json();
+        console.log('[HostPage] MIDI data received:', midiData);
+        setAvailableMidiFiles(midiData.files || []);
+        console.log('[HostPage] MIDI files state updated');
+      } catch (err) {
+        console.error('[HostPage] MIDI fetch error:', err);
+      }
+
+      // Fetch YouTube links
+      try {
+        console.log('[HostPage] Fetching YouTube links from: /api/youtube-links');
+        const ytRes = await fetch('/api/youtube-links');
+        console.log('[HostPage] YouTube response status:', ytRes.status);
+        const ytData = await ytRes.json();
+        console.log('[HostPage] YouTube data received:', ytData);
+        setYoutubeLinks(ytData.links || []);
+        console.log('[HostPage] YouTube links state updated');
+      } catch (err) {
+        console.error('[HostPage] YouTube links fetch error:', err);
+      }
+
+      // Fetch lyrics files
+      try {
+        console.log('[HostPage] Fetching lyrics files from: /api/lyrics-files');
+        const lyricsRes = await fetch('/api/lyrics-files');
+        console.log('[HostPage] Lyrics response status:', lyricsRes.status);
+        const lyricsData = await lyricsRes.json();
+        console.log('[HostPage] Lyrics data received:', lyricsData);
+        setLyricsFiles(lyricsData.files || []);
+        console.log('[HostPage] Lyrics files state updated');
+      } catch (err) {
+        console.error('[HostPage] Lyrics fetch error:', err);
+      }
+    };
+
+    fetchAllData();
   }, []);
 
   // Load YouTube IFrame API
@@ -151,6 +184,105 @@ const HostPage: React.FC = () => {
     return null;
   };
 
+  // Handle YouTube link selection from dropdown
+  const handleYoutubeLinkSelect = (linkName: string) => {
+    setSelectedYoutubeLink(linkName);
+    const link = youtubeLinks.find(l => l.name === linkName);
+    if (link) {
+      setYoutubeUrl(link.url);
+      // Auto-load the video
+      const id = parseYouTubeId(link.url);
+      if (id) {
+        setYoutubeId(id);
+        if (ytPlayerRef.current) {
+          ytPlayerRef.current.loadVideoById(id);
+        } else {
+          // Will be loaded when player is ready
+          loadYouTubeById(id);
+        }
+      }
+    }
+  };
+
+  // Handle lyrics file selection from dropdown
+  const handleLyricsFileSelect = async (filename: string) => {
+    if (!filename) return;
+    setSelectedLyricsFile(filename);
+    
+    try {
+      const url = `/api/lyrics-file/${encodeURIComponent(filename)}`;
+      console.log('[HostPage] Fetching lyrics from:', url);
+      
+      const response = await fetch(url);
+      console.log('[HostPage] Lyrics response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('[HostPage] Lyrics data received:', data);
+      
+      if (data.content) {
+        setLrcText(data.content);
+        // Auto-parse the lyrics
+        const parsed = parseLRC(data.content);
+        if (parsed.length > 0) {
+          setLyrics(parsed);
+          console.log('[HostPage] Lyrics parsed:', parsed.length, 'lines');
+        }
+      }
+    } catch (err) {
+      console.error('[HostPage] Failed to load lyrics file:', err);
+      alert(`Failed to load lyrics file: ${err}`);
+    }
+  };
+
+  // Load YouTube video by ID - uses persistent player div
+  const loadYouTubeById = (id: string) => {
+    const initPlayer = () => {
+      // Use the persistent player div that survives view changes
+      const playerDiv = document.getElementById('youtube-player') || document.getElementById('youtube-player-persistent');
+      if (!playerDiv) {
+        console.error('[HostPage] No YouTube player div found');
+        return;
+      }
+      
+      ytPlayerRef.current = new window.YT.Player(playerDiv.id, {
+        height: '200',
+        width: '100%',
+        videoId: id,
+        playerVars: {
+          playsinline: 1,
+          mute: 1,
+          autoplay: 0
+        },
+        events: {
+          onReady: (event: any) => {
+            console.log('[HostPage] YouTube player ready');
+            ytReadyRef.current = true;
+            const duration = event.target.getDuration();
+            setSongDuration(duration);
+          },
+          onStateChange: (event: any) => {
+            console.log('[HostPage] YouTube state changed:', event.data);
+            if (event.data === window.YT.PlayerState.ENDED) {
+              if (gameState?.phase === GamePhase.PLAYING) {
+                endGame();
+              }
+            }
+          }
+        }
+      });
+    };
+
+    if (window.YT && window.YT.Player) {
+      initPlayer();
+    } else {
+      window.onYouTubeIframeAPIReady = initPlayer;
+    }
+  };
+
   // Load YouTube video
   const loadYouTube = () => {
     const id = parseYouTubeId(youtubeUrl);
@@ -166,23 +298,31 @@ const HostPage: React.FC = () => {
     }
 
     const initPlayer = () => {
-      ytPlayerRef.current = new window.YT.Player('youtube-player', {
+      const playerDiv = document.getElementById('youtube-player') || document.getElementById('youtube-player-persistent');
+      if (!playerDiv) {
+        console.error('[HostPage] No YouTube player div found');
+        return;
+      }
+      
+      ytPlayerRef.current = new window.YT.Player(playerDiv.id, {
         height: '200',
         width: '100%',
         videoId: id,
         playerVars: {
           playsinline: 1,
-          mute: 1  // Start muted to handle autoplay policies
+          mute: 1,
+          autoplay: 0
         },
         events: {
           onReady: (event: any) => {
+            console.log('[HostPage] YouTube player ready');
             ytReadyRef.current = true;
             const duration = event.target.getDuration();
             setSongDuration(duration);
           },
           onStateChange: (event: any) => {
+            console.log('[HostPage] YouTube state changed:', event.data);
             if (event.data === window.YT.PlayerState.ENDED) {
-              // Song ended
               if (gameState?.phase === GamePhase.PLAYING) {
                 endGame();
               }
@@ -321,19 +461,23 @@ const HostPage: React.FC = () => {
     setSelectedMidiFile(filename);
     
     try {
-      // Get server URL from sessionStorage or use localhost
-      let serverUrl = 'http://localhost:3001';
-      const stored = sessionStorage.getItem('ngrok-config');
-      if (stored) {
-        const config = JSON.parse(stored);
-        if (config.serverUrl) {
-          serverUrl = config.serverUrl;
-        }
+      const url = `/midi/${encodeURIComponent(filename)}`;
+      console.log('[HostPage] Fetching MIDI from:', url);
+      
+      const response = await fetch(url);
+      console.log('[HostPage] MIDI response status:', response.status);
+      console.log('[HostPage] MIDI response headers:', response.headers.get('content-type'));
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const response = await fetch(`${serverUrl}/midi/${encodeURIComponent(filename)}`);
+      
       const arrayBuffer = await response.arrayBuffer();
+      console.log('[HostPage] MIDI buffer size:', arrayBuffer.byteLength);
+      
       const notes = await parseMidiFile(arrayBuffer);
       setMidiNotes(notes);
+      console.log('[HostPage] MIDI notes loaded:', notes.length);
       
       // Update duration from MIDI if longer
       if (notes.length > 0) {
@@ -344,8 +488,8 @@ const HostPage: React.FC = () => {
         }
       }
     } catch (err) {
-      console.error('Failed to load MIDI:', err);
-      alert('Failed to load MIDI file');
+      console.error('[HostPage] Failed to load MIDI:', err);
+      alert(`Failed to load MIDI file: ${err}`);
     }
   };
 
@@ -365,31 +509,42 @@ const HostPage: React.FC = () => {
       lyrics
     };
 
-    // Initialize game state
-    const initialState = createInitialGameState(songDuration);
-    initialState.phase = GamePhase.PLAYING;
-    setGameState(initialState);
-
-    // Notify clients
+    // Notify clients first
     socketClient.startGame(songConfig);
 
-    // Start YouTube playback - unmute first to handle autoplay policies
+    // Start YouTube playback BEFORE changing state (while player DOM still exists)
+    console.log('[HostPage] Starting YouTube playback...');
     ytPlayerRef.current.unMute();
+    ytPlayerRef.current.setVolume(100);
+    ytPlayerRef.current.seekTo(0, true);
     ytPlayerRef.current.playVideo();
     gameStartTimeRef.current = performance.now();
 
-    // Start game loop
-    gameLoop();
+    // Small delay to ensure video starts playing before switching views
+    setTimeout(() => {
+      // Initialize game state - this will trigger view switch
+      const initialState = createInitialGameState(songDuration);
+      initialState.phase = GamePhase.PLAYING;
+      setGameState(initialState);
+      console.log('[HostPage] Game state set to PLAYING');
+    }, 100);
   };
 
   // Game loop
   const gameLoop = useCallback(() => {
     if (!ytPlayerRef.current || !ytReadyRef.current) {
+      console.log('[GameLoop] Waiting for YouTube player...', { player: !!ytPlayerRef.current, ready: ytReadyRef.current });
       gameLoopRef.current = requestAnimationFrame(gameLoop);
       return;
     }
 
     const currentTime = ytPlayerRef.current.getCurrentTime() || 0;
+    const playerState = ytPlayerRef.current.getPlayerState?.();
+    
+    // Log every second approximately
+    if (Math.floor(currentTime * 10) % 10 === 0) {
+      console.log('[GameLoop] Running:', { currentTime: currentTime.toFixed(2), playerState, midiNotes: midiNotes.length });
+    }
 
     setGameState(prevState => {
       if (!prevState || prevState.phase !== GamePhase.PLAYING) {
@@ -443,6 +598,22 @@ const HostPage: React.FC = () => {
     gameLoopRef.current = requestAnimationFrame(gameLoop);
   }, [midiNotes, lyrics]);
 
+  // Start game loop when game enters PLAYING phase
+  useEffect(() => {
+    if (gameState?.phase === GamePhase.PLAYING && !gameLoopRef.current) {
+      console.log('[HostPage] Game phase is PLAYING, starting game loop');
+      gameLoop();
+    }
+    
+    return () => {
+      if (gameLoopRef.current && gameState?.phase !== GamePhase.PLAYING) {
+        console.log('[HostPage] Game phase changed from PLAYING, stopping game loop');
+        cancelAnimationFrame(gameLoopRef.current);
+        gameLoopRef.current = null;
+      }
+    };
+  }, [gameState?.phase, gameLoop]);
+
   // End game
   const endGame = (finalState?: GameState) => {
     if (gameLoopRef.current) {
@@ -462,21 +633,38 @@ const HostPage: React.FC = () => {
     }
   };
 
-  // Check if ready to start
+  // Check if ready to start - requires YouTube, MIDI, and Lyrics
   const canStart = connected && 
     lobbyState.p1Connected && 
     lobbyState.p2Connected && 
     allReady && 
     youtubeId && 
-    midiNotes.length > 0;
+    midiNotes.length > 0 &&
+    lyrics.length > 0;
 
-  // Render lobby
-  if (!gameState || gameState.phase === GamePhase.LOBBY) {
-    return (
-      <div className="min-h-screen h-full bg-black text-white overflow-y-auto">
-        <div className="max-w-4xl mx-auto p-4 md:p-8 pb-20">
-          <h1 className="text-2xl md:text-4xl font-black text-cyan-500 mb-2">VOCAL COMBAT</h1>
-          <p className="text-yellow-500 mb-4 md:mb-8 text-sm md:text-base">HOST SETUP</p>
+  const isLobby = !gameState || gameState.phase === GamePhase.LOBBY;
+  const isPlaying = gameState?.phase === GamePhase.PLAYING;
+  const isGameOver = gameState?.phase === GamePhase.GAME_OVER;
+
+  // Use a single return with conditional visibility to preserve YouTube player
+  return (
+    <>
+      {/* Persistent YouTube Player Container - always mounted, visible in lobby, hidden during game */}
+      <div 
+        id="persistent-yt-container" 
+        className={isLobby ? 'hidden' : 'fixed top-0 left-0 w-1 h-1 opacity-0 pointer-events-none overflow-hidden'}
+        style={{ zIndex: -1 }}
+      >
+        <div id="youtube-player-persistent"></div>
+      </div>
+
+      {/* Lobby View - use CSS visibility instead of conditional render to preserve YouTube player */}
+      <div 
+        className={`min-h-screen h-full bg-black text-white overflow-y-auto ${isLobby ? '' : 'hidden'}`}
+      >
+          <div className="max-w-4xl mx-auto p-4 md:p-8 pb-20">
+            <h1 className="text-2xl md:text-4xl font-black text-cyan-500 mb-2">VOCAL COMBAT</h1>
+            <p className="text-yellow-500 mb-4 md:mb-8 text-sm md:text-base">HOST SETUP</p>
 
           {/* Ngrok Setup Info */}
           <NgrokSetup />
@@ -531,23 +719,44 @@ const HostPage: React.FC = () => {
           <div className="bg-gray-900 p-3 md:p-4 rounded-lg mb-4 md:mb-6">
             <div className="flex items-center gap-2 mb-3 md:mb-4">
               <Music className="w-4 h-4 md:w-5 md:h-5 text-red-500" />
-              <span className="font-bold text-sm md:text-base">YouTube Video</span>
+              <span className="font-bold text-sm md:text-base">YouTube Video (Required)</span>
             </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={youtubeUrl}
-                onChange={(e) => setYoutubeUrl(e.target.value)}
-                placeholder="Paste YouTube URL or video ID"
-                className="flex-1 bg-gray-800 border border-gray-700 rounded px-4 py-2 text-sm md:text-base"
-              />
-              <button
-                onClick={loadYouTube}
-                className="bg-red-600 hover:bg-red-500 px-3 md:px-4 py-2 rounded font-bold text-sm md:text-base whitespace-nowrap"
+            
+            {/* Dropdown for YouTube links from links.txt */}
+            <div className="mb-4">
+              <label className="block text-sm text-gray-400 mb-2">Select a song:</label>
+              <select
+                value={selectedYoutubeLink}
+                onChange={(e) => handleYoutubeLinkSelect(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded px-4 py-2 text-white"
               >
-                Load
-              </button>
+                <option value="">{youtubeLinks.length === 0 ? '-- Loading songs... --' : '-- Select a song --'}</option>
+                {youtubeLinks.map(link => (
+                  <option key={link.name} value={link.name}>{link.name}</option>
+                ))}
+              </select>
             </div>
+
+            {/* Manual URL input as fallback */}
+            <div className="mb-4">
+              <label className="block text-sm text-gray-400 mb-2">Or paste YouTube URL:</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.target.value)}
+                  placeholder="Paste YouTube URL or video ID"
+                  className="flex-1 bg-gray-800 border border-gray-700 rounded px-4 py-2 text-sm md:text-base"
+                />
+                <button
+                  onClick={loadYouTube}
+                  className="bg-red-600 hover:bg-red-500 px-3 md:px-4 py-2 rounded font-bold text-sm md:text-base whitespace-nowrap"
+                >
+                  Load
+                </button>
+              </div>
+            </div>
+
             <div className="mt-4 w-full aspect-video bg-gray-800 rounded overflow-hidden">
               <div id="youtube-player" className="w-full h-full"></div>
             </div>
@@ -566,21 +775,19 @@ const HostPage: React.FC = () => {
             </div>
             
             {/* Dropdown for pre-loaded MIDI files */}
-            {availableMidiFiles.length > 0 && (
-              <div className="mb-4">
-                <label className="block text-sm text-gray-400 mb-2">Select from Midi Files folder:</label>
-                <select
-                  value={selectedMidiFile}
-                  onChange={(e) => handleMidiSelect(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded px-4 py-2 text-white"
-                >
-                  <option value="">-- Select a MIDI file --</option>
-                  {availableMidiFiles.map(file => (
-                    <option key={file} value={file}>{file}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div className="mb-4">
+              <label className="block text-sm text-gray-400 mb-2">Select from Midi Files folder:</label>
+              <select
+                value={selectedMidiFile}
+                onChange={(e) => handleMidiSelect(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded px-4 py-2 text-white"
+              >
+                <option value="">{availableMidiFiles.length === 0 ? '-- Loading MIDI files... --' : '-- Select a MIDI file --'}</option>
+                {availableMidiFiles.map(file => (
+                  <option key={file} value={file}>{file}</option>
+                ))}
+              </select>
+            </div>
 
             {/* File upload option */}
             <div>
@@ -605,34 +812,41 @@ const HostPage: React.FC = () => {
           <div className="bg-gray-900 p-3 md:p-4 rounded-lg mb-4 md:mb-6">
             <div className="flex items-center gap-2 mb-3 md:mb-4">
               <FileText className="w-4 h-4 md:w-5 md:h-5 text-blue-500" />
-              <span className="font-bold text-sm md:text-base">LRC Lyrics (Optional)</span>
+              <span className="font-bold text-sm md:text-base">LRC Lyrics (Required)</span>
             </div>
-            <textarea
-              value={lrcText}
-              onChange={(e) => setLrcText(e.target.value)}
-              placeholder="[00:10.00] First line of lyrics..."
-              rows={4}
-              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 font-mono text-xs md:text-sm resize-y"
-            />
-            <div className="flex gap-2 mt-2 flex-col md:flex-row">
-              <button
-                onClick={autoFillLyrics}
-                disabled={!youtubeId || fetchingLyrics}
-                className={`px-4 py-2 rounded font-bold text-sm md:text-base flex-1 ${
-                  youtubeId && !fetchingLyrics
-                    ? 'bg-green-600 hover:bg-green-500'
-                    : 'bg-gray-700 cursor-not-allowed'
-                }`}
-              >
-                {fetchingLyrics ? '⏳ Fetching...' : '🔍 Auto-fill from lrclib.net'}
-              </button>
-              <button
-                onClick={loadLyrics}
-                className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded font-bold text-sm md:text-base flex-1 md:flex-initial"
-              >
-                Parse Lyrics
-              </button>
+            
+            {/* Dropdown for lyrics files from Lyrics folder */}
+            <div className="mb-4">
+                <label className="block text-sm text-gray-400 mb-2">Select lyrics file:</label>
+                <select
+                  value={selectedLyricsFile}
+                  onChange={(e) => handleLyricsFileSelect(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded px-4 py-2 text-white"
+                >
+                  <option value="">{lyricsFiles.length === 0 ? '-- Loading lyrics files... --' : '-- Select a lyrics file --'}</option>
+                  {lyricsFiles.map(file => (
+                    <option key={file} value={file}>{file.replace('.txt', '')}</option>
+                  ))}
+                </select>
             </div>
+
+            {/* Manual lyrics input as fallback */}
+            <div className="mb-2">
+              <label className="block text-sm text-gray-400 mb-2">Or paste LRC lyrics:</label>
+              <textarea
+                value={lrcText}
+                onChange={(e) => setLrcText(e.target.value)}
+                placeholder="[00:10.00] First line of lyrics..."
+                rows={4}
+                className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 font-mono text-xs md:text-sm resize-y"
+              />
+            </div>
+            <button
+              onClick={loadLyrics}
+              className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded font-bold text-sm md:text-base mt-2"
+            >
+              Parse Lyrics
+            </button>
             {lyrics.length > 0 && (
               <p className="text-sm text-green-500 mt-2">
                 ✅ Loaded {lyrics.length} lyric lines
@@ -655,124 +869,119 @@ const HostPage: React.FC = () => {
           </button>
         </div>
       </div>
-    );
-  }
 
-  // Render game
-  return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center p-4 md:p-8 select-none">
-      {/* Header */}
-      <div className="w-full max-w-5xl flex justify-between items-start mb-4 z-10">
-        <div className="flex flex-col">
-          <h1 className="text-3xl font-black italic text-cyan-500 tracking-tighter">VOCAL COMBAT</h1>
-          <p className="text-xs text-yellow-500">
-            SEGMENT {gameState.currentSegment}/4 — {gameState.attackingPlayer === 1 ? 'P1' : 'P2'} ATTACKING
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-lg font-bold">
-            P1: {gameState.player1.score.toString().padStart(5, '0')} | 
-            P2: {gameState.player2.score.toString().padStart(5, '0')}
-          </p>
-        </div>
-      </div>
-
-      {/* YouTube Player (hidden during gameplay, just for audio) */}
-      <div className="hidden">
-        <div id="youtube-player"></div>
-      </div>
-
-      {/* Battle Stage */}
-      <div className="flex-1 w-full max-w-5xl relative flex flex-col md:flex-row justify-around items-center gap-8">
-        <Fighter 
-          side="left" 
-          hp={gameState.player1.hp} 
-          name={gameState.player1.name}
-          isAttacking={gameState.player1.isAttacking} 
-          isDamaged={gameState.player1.isDamaged} 
-        />
-
-        {/* Center info */}
-        <div className="flex flex-col items-center gap-4">
-          <div className="bg-black/80 border-2 border-cyan-500 p-4 rounded-lg max-w-md text-center">
-            <p className="text-xs text-gray-400 mb-1">NOW</p>
-            <p className="text-lg font-bold uppercase text-cyan-400">{currentLyric || '♪ ♪ ♪'}</p>
-            {nextLyric && (
-              <>
-                <div className="border-t border-gray-700 my-2"></div>
-                <p className="text-xs text-gray-400 mb-1">NEXT</p>
-                <p className="text-sm text-gray-300">{nextLyric}</p>
-              </>
-            )}
-          </div>
-          
-          <div className="flex gap-8 text-sm">
-            <div className="text-center">
-              <p className="text-gray-500">P1 Pitch</p>
-              <p className="text-cyan-400 font-mono">
-                {p1PitchRef.current > 0 ? `${Math.round(p1PitchRef.current)} Hz` : '—'}
+      {/* Game View */}
+      {(isPlaying || isGameOver) && gameState && (
+        <div className="min-h-screen bg-black text-white flex flex-col items-center p-4 md:p-8 select-none">
+          {/* Header */}
+          <div className="w-full max-w-5xl flex justify-between items-start mb-4 z-10">
+            <div className="flex flex-col">
+              <h1 className="text-3xl font-black italic text-cyan-500 tracking-tighter">VOCAL COMBAT</h1>
+              <p className="text-xs text-yellow-500">
+                SEGMENT {gameState.currentSegment}/4 — {gameState.attackingPlayer === 1 ? 'P1' : 'P2'} ATTACKING
               </p>
             </div>
-            <div className="text-center">
-              <p className="text-gray-500">P2 Pitch</p>
-              <p className="text-cyan-400 font-mono">
-                {p2PitchRef.current > 0 ? `${Math.round(p2PitchRef.current)} Hz` : '—'}
+            <div className="text-right">
+              <p className="text-lg font-bold">
+                P1: {gameState.player1.score.toString().padStart(5, '0')} | 
+                P2: {gameState.player2.score.toString().padStart(5, '0')}
               </p>
             </div>
           </div>
-        </div>
 
-        <Fighter 
-          side="right" 
-          hp={gameState.player2.hp} 
-          name={gameState.player2.name}
-          isAttacking={gameState.player2.isAttacking} 
-          isDamaged={gameState.player2.isDamaged} 
-        />
-      </div>
+          {/* Battle Stage */}
+          <div className="flex-1 w-full max-w-5xl relative flex flex-col md:flex-row justify-around items-center gap-8">
+            <Fighter 
+              side="left" 
+              hp={gameState.player1.hp} 
+              name={gameState.player1.name}
+              isAttacking={gameState.player1.isAttacking} 
+              isDamaged={gameState.player1.isDamaged} 
+            />
 
-      {/* Karaoke Highway */}
-      <div className="w-full max-w-5xl mb-4">
-        <KaraokeHighway 
-          notes={midiNotes.map(n => ({
-            time: n.time,
-            pitch: n.pitch,
-            duration: n.duration,
-            lyrics: ''
-          }))}
-          currentTime={gameState.currentTime}
-          currentPitch={gameState.attackingPlayer === 1 ? p1PitchRef.current : p2PitchRef.current}
-        />
-      </div>
-
-      {/* Game Over Overlay */}
-      {gameState.phase === GamePhase.GAME_OVER && (
-        <div className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-8">
-          <h2 className="text-6xl font-black italic text-cyan-500 mb-4">GAME OVER</h2>
-          <p className="text-3xl text-yellow-400 mb-8">
-            {gameState.winner === 'tie' 
-              ? "IT'S A TIE!" 
-              : `PLAYER ${gameState.winner} WINS!`}
-          </p>
-          <div className="flex gap-8 mb-8">
-            <div className="text-center">
-              <p className="text-gray-400">Player 1</p>
-              <p className="text-4xl font-black">{gameState.player1.score}</p>
+            {/* Center info */}
+            <div className="flex flex-col items-center gap-4">
+              <div className="bg-black/80 border-2 border-cyan-500 p-4 rounded-lg max-w-md text-center">
+                <p className="text-xs text-gray-400 mb-1">NOW</p>
+                <p className="text-lg font-bold uppercase text-cyan-400">{currentLyric || '♪ ♪ ♪'}</p>
+                {nextLyric && (
+                  <>
+                    <div className="border-t border-gray-700 my-2"></div>
+                    <p className="text-xs text-gray-400 mb-1">NEXT</p>
+                    <p className="text-sm text-gray-300">{nextLyric}</p>
+                  </>
+                )}
+              </div>
+              
+              <div className="flex gap-8 text-sm">
+                <div className="text-center">
+                  <p className="text-gray-500">P1 Pitch</p>
+                  <p className="text-cyan-400 font-mono">
+                    {p1PitchRef.current > 0 ? `${Math.round(p1PitchRef.current)} Hz` : '—'}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-gray-500">P2 Pitch</p>
+                  <p className="text-cyan-400 font-mono">
+                    {p2PitchRef.current > 0 ? `${Math.round(p2PitchRef.current)} Hz` : '—'}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="text-center">
-              <p className="text-gray-400">Player 2</p>
-              <p className="text-4xl font-black">{gameState.player2.score}</p>
-            </div>
+
+            <Fighter 
+              side="right" 
+              hp={gameState.player2.hp} 
+              name={gameState.player2.name}
+              isAttacking={gameState.player2.isAttacking} 
+              isDamaged={gameState.player2.isDamaged} 
+            />
           </div>
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-cyan-600 hover:bg-cyan-500 px-8 py-4 rounded-full font-bold text-xl"
-          >
-            PLAY AGAIN
-          </button>
+
+          {/* Karaoke Highway */}
+          <div className="w-full max-w-5xl mb-4">
+            <KaraokeHighway 
+              notes={midiNotes.map(n => ({
+                time: n.time,
+                pitch: n.pitch,
+                duration: n.duration,
+                lyrics: ''
+              }))}
+              currentTime={gameState.currentTime}
+              currentPitch={gameState.attackingPlayer === 1 ? p1PitchRef.current : p2PitchRef.current}
+            />
+          </div>
+
+          {/* Game Over Overlay */}
+          {gameState.phase === GamePhase.GAME_OVER && (
+            <div className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-8">
+              <h2 className="text-6xl font-black italic text-cyan-500 mb-4">GAME OVER</h2>
+              <p className="text-3xl text-yellow-400 mb-8">
+                {gameState.winner === 'tie' 
+                  ? "IT'S A TIE!" 
+                  : `PLAYER ${gameState.winner} WINS!`}
+              </p>
+              <div className="flex gap-8 mb-8">
+                <div className="text-center">
+                  <p className="text-gray-400">Player 1</p>
+                  <p className="text-4xl font-black">{gameState.player1.score}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-gray-400">Player 2</p>
+                  <p className="text-4xl font-black">{gameState.player2.score}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => window.location.reload()}
+                className="bg-cyan-600 hover:bg-cyan-500 px-8 py-4 rounded-full font-bold text-xl"
+              >
+                PLAY AGAIN
+              </button>
+            </div>
+          )}
         </div>
       )}
-    </div>
+    </>
   );
 };
 

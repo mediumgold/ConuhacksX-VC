@@ -18,10 +18,13 @@ function spaFallback(): Plugin {
           // Skip if it's an API request, HMR, or has a file extension
           if (
             url.startsWith('/socket.io') ||
+            url.startsWith('/api') ||
+            url.startsWith('/midi') ||
+            url.startsWith('/lyrics') ||
             url.startsWith('/@') ||
             url.startsWith('/src/') ||
             url.startsWith('/node_modules/') ||
-            /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|json|map)$/i.test(pathname)
+            /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|json|map|mid|midi)$/i.test(pathname)
           ) {
             return next();
           }
@@ -54,6 +57,18 @@ export default defineConfig(({ mode }) => {
           '/socket.io': {
             target: 'http://localhost:3001',
             ws: true,
+            changeOrigin: true
+          },
+          '/api': {
+            target: 'http://localhost:3001',
+            changeOrigin: true
+          },
+          '/midi': {
+            target: 'http://localhost:3001',
+            changeOrigin: true
+          },
+          '/lyrics': {
+            target: 'http://localhost:3001',
             changeOrigin: true
           }
         }

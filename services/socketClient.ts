@@ -25,19 +25,20 @@ class SocketClient {
 
       // Check if we're on ngrok
       if (hostname.includes('ngrok')) {
-        // On ngrok free tier, both client and server tunnels share the same URL
-        // Ngrok routes internally based on the local port
-        // So we use the same ngrok URL for Socket.IO
+        // Use the same ngrok URL - Vite proxies /socket.io to port 3001
+        console.log('[SocketClient] Using ngrok URL:', `${protocol}//${hostname}`);
         return `${protocol}//${hostname}`;
       }
 
-      // Local development
+      // Local development - use relative URL so Vite proxy handles it
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://localhost:3001';
+        console.log('[SocketClient] Using localhost with Vite proxy');
+        return window.location.origin; // Use same origin, Vite will proxy
       }
 
-      // Same network (using IP address)
-      return `http://${hostname}:3001`;
+      // Same network (using IP address) - use Vite proxy
+      console.log('[SocketClient] Using network IP with Vite proxy');
+      return window.location.origin;
     }
 
     return 'http://localhost:3001';

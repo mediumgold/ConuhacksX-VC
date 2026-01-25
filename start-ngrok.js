@@ -35,8 +35,8 @@ async function startNgrok() {
     console.log('Starting ngrok tunnels...\n');
     console.log('🔄 Launching ngrok with config file...\n');
 
-    // Start ngrok using the CLI with config file
-    const ngrokProcess = spawn('ngrok', ['start', '--all', '--config', path.join(__dirname, 'ngrok.yml')], {
+    // Start ngrok using the CLI with config file (only web tunnel for free tier)
+    const ngrokProcess = spawn('ngrok', ['start', 'web', '--config', path.join(__dirname, 'ngrok.yml')], {
       stdio: 'pipe',
       detached: false
     });

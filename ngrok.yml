@@ -1,6 +1,6 @@
-authtoken: 38iy3TjZdmcrVw6VleUxTjDFldK_78ZQWZVwWMvKgRSJQcuR2
 version: "2"
+authtoken: 38j6BwWe0FLWoU7SBZxu9TJ0AbZ_7r4zhUXQzWCqgkKVmYfZa
 tunnels:
-  client:
+  web:
     addr: 3000
     proto: http

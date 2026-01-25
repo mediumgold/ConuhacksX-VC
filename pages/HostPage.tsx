@@ -165,8 +165,8 @@ const HostPage: React.FC = () => {
 
     const initPlayer = () => {
       ytPlayerRef.current = new window.YT.Player('youtube-player', {
-        height: '315',
-        width: '560',
+        height: '200',
+        width: '100%',
         videoId: id,
         playerVars: { playsinline: 1 },
         events: {
@@ -374,34 +374,34 @@ const HostPage: React.FC = () => {
   // Render lobby
   if (!gameState || gameState.phase === GamePhase.LOBBY) {
     return (
-      <div className="min-h-screen bg-black text-white p-8">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-4xl font-black text-cyan-500 mb-2">VOCAL COMBAT</h1>
-          <p className="text-yellow-500 mb-8">HOST SETUP</p>
+      <div className="min-h-screen h-full bg-black text-white overflow-y-auto">
+        <div className="max-w-4xl mx-auto p-4 md:p-8 pb-20">
+          <h1 className="text-2xl md:text-4xl font-black text-cyan-500 mb-2">VOCAL COMBAT</h1>
+          <p className="text-yellow-500 mb-4 md:mb-8 text-sm md:text-base">HOST SETUP</p>
 
           {/* Ngrok Setup Info */}
           <NgrokSetup />
 
           {/* Connection Status */}
-          <div className="bg-gray-900 p-4 rounded-lg mb-6">
-            <div className="flex items-center gap-2 mb-4">
+          <div className="bg-gray-900 p-3 md:p-4 rounded-lg mb-4 md:mb-6">
+            <div className="flex items-center gap-2 mb-3 md:mb-4">
               {connected ? (
-                <Wifi className="w-5 h-5 text-green-500" />
+                <Wifi className="w-4 h-4 md:w-5 md:h-5 text-green-500" />
               ) : (
-                <WifiOff className="w-5 h-5 text-red-500" />
+                <WifiOff className="w-4 h-4 md:w-5 md:h-5 text-red-500" />
               )}
-              <span className={connected ? 'text-green-500' : 'text-red-500'}>
+              <span className={`text-sm md:text-base ${connected ? 'text-green-500' : 'text-red-500'}`}>
                 {connected ? 'Server Connected' : 'Disconnected'}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className={`p-4 rounded border-2 ${lobbyState.p1Connected ? 'border-green-500 bg-green-900/20' : 'border-gray-700'}`}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+              <div className={`p-3 md:p-4 rounded border-2 ${lobbyState.p1Connected ? 'border-green-500 bg-green-900/20' : 'border-gray-700'}`}>
                 <div className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  <span>Player 1</span>
+                  <Users className="w-4 h-4 md:w-5 md:h-5" />
+                  <span className="text-sm md:text-base">Player 1</span>
                 </div>
-                <p className="text-sm mt-2">
+                <p className="text-xs md:text-sm mt-2">
                   {lobbyState.p1Connected ? (
                     lobbyState.p1Ready ? '✅ Ready' : '⏳ Connected'
                   ) : '❌ Not Connected'}
@@ -411,12 +411,12 @@ const HostPage: React.FC = () => {
                 </p>
               </div>
 
-              <div className={`p-4 rounded border-2 ${lobbyState.p2Connected ? 'border-green-500 bg-green-900/20' : 'border-gray-700'}`}>
+              <div className={`p-3 md:p-4 rounded border-2 ${lobbyState.p2Connected ? 'border-green-500 bg-green-900/20' : 'border-gray-700'}`}>
                 <div className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  <span>Player 2</span>
+                  <Users className="w-4 h-4 md:w-5 md:h-5" />
+                  <span className="text-sm md:text-base">Player 2</span>
                 </div>
-                <p className="text-sm mt-2">
+                <p className="text-xs md:text-sm mt-2">
                   {lobbyState.p2Connected ? (
                     lobbyState.p2Ready ? '✅ Ready' : '⏳ Connected'
                   ) : '❌ Not Connected'}
@@ -429,10 +429,10 @@ const HostPage: React.FC = () => {
           </div>
 
           {/* YouTube Input */}
-          <div className="bg-gray-900 p-4 rounded-lg mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Music className="w-5 h-5 text-red-500" />
-              <span className="font-bold">YouTube Video</span>
+          <div className="bg-gray-900 p-3 md:p-4 rounded-lg mb-4 md:mb-6">
+            <div className="flex items-center gap-2 mb-3 md:mb-4">
+              <Music className="w-4 h-4 md:w-5 md:h-5 text-red-500" />
+              <span className="font-bold text-sm md:text-base">YouTube Video</span>
             </div>
             <div className="flex gap-2">
               <input
@@ -440,16 +440,18 @@ const HostPage: React.FC = () => {
                 value={youtubeUrl}
                 onChange={(e) => setYoutubeUrl(e.target.value)}
                 placeholder="Paste YouTube URL or video ID"
-                className="flex-1 bg-gray-800 border border-gray-700 rounded px-4 py-2"
+                className="flex-1 bg-gray-800 border border-gray-700 rounded px-4 py-2 text-sm md:text-base"
               />
               <button
                 onClick={loadYouTube}
-                className="bg-red-600 hover:bg-red-500 px-4 py-2 rounded font-bold"
+                className="bg-red-600 hover:bg-red-500 px-3 md:px-4 py-2 rounded font-bold text-sm md:text-base whitespace-nowrap"
               >
                 Load
               </button>
             </div>
-            <div id="youtube-player" className="mt-4"></div>
+            <div className="mt-4 w-full aspect-video bg-gray-800 rounded overflow-hidden">
+              <div id="youtube-player" className="w-full h-full"></div>
+            </div>
             {songDuration > 0 && (
               <p className="text-sm text-green-500 mt-2">
                 ✅ Duration: {Math.floor(songDuration / 60)}:{Math.floor(songDuration % 60).toString().padStart(2, '0')}
@@ -458,10 +460,10 @@ const HostPage: React.FC = () => {
           </div>
 
           {/* MIDI File Selection */}
-          <div className="bg-gray-900 p-4 rounded-lg mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Upload className="w-5 h-5 text-purple-500" />
-              <span className="font-bold">MIDI File (Required)</span>
+          <div className="bg-gray-900 p-3 md:p-4 rounded-lg mb-4 md:mb-6">
+            <div className="flex items-center gap-2 mb-3 md:mb-4">
+              <Upload className="w-4 h-4 md:w-5 md:h-5 text-purple-500" />
+              <span className="font-bold text-sm md:text-base">MIDI File (Required)</span>
             </div>
             
             {/* Dropdown for pre-loaded MIDI files */}
@@ -501,21 +503,21 @@ const HostPage: React.FC = () => {
           </div>
 
           {/* LRC Lyrics */}
-          <div className="bg-gray-900 p-4 rounded-lg mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <FileText className="w-5 h-5 text-blue-500" />
-              <span className="font-bold">LRC Lyrics (Optional)</span>
+          <div className="bg-gray-900 p-3 md:p-4 rounded-lg mb-4 md:mb-6">
+            <div className="flex items-center gap-2 mb-3 md:mb-4">
+              <FileText className="w-4 h-4 md:w-5 md:h-5 text-blue-500" />
+              <span className="font-bold text-sm md:text-base">LRC Lyrics (Optional)</span>
             </div>
             <textarea
               value={lrcText}
               onChange={(e) => setLrcText(e.target.value)}
               placeholder="[00:10.00] First line of lyrics..."
-              rows={6}
-              className="w-full bg-gray-800 border border-gray-700 rounded px-4 py-2 font-mono text-sm"
+              rows={4}
+              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 font-mono text-xs md:text-sm resize-y"
             />
             <button
               onClick={loadLyrics}
-              className="mt-2 bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded font-bold"
+              className="mt-2 bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded font-bold text-sm md:text-base w-full md:w-auto"
             >
               Parse Lyrics
             </button>
@@ -530,14 +532,14 @@ const HostPage: React.FC = () => {
           <button
             onClick={startGame}
             disabled={!canStart}
-            className={`w-full py-4 rounded-lg font-black text-2xl flex items-center justify-center gap-4 ${
-              canStart 
-                ? 'bg-cyan-600 hover:bg-cyan-500 cursor-pointer' 
+            className={`w-full py-3 md:py-4 rounded-lg font-black text-lg md:text-2xl flex items-center justify-center gap-2 md:gap-4 ${
+              canStart
+                ? 'bg-cyan-600 hover:bg-cyan-500 cursor-pointer'
                 : 'bg-gray-700 cursor-not-allowed'
             }`}
           >
-            <Play className="w-8 h-8" />
-            {canStart ? 'START BATTLE' : 'Waiting for players & assets...'}
+            <Play className="w-6 h-6 md:w-8 md:h-8" />
+            <span className="text-center">{canStart ? 'START BATTLE' : 'Waiting for players & assets...'}</span>
           </button>
         </div>
       </div>

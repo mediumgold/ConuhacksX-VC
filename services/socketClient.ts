@@ -18,18 +18,28 @@ class SocketClient {
   private serverUrl = this.getServerUrl();
 
   private getServerUrl(): string {
-    // Check if ngrok URLs are available
-    try {
-      const stored = sessionStorage.getItem('ngrok-config');
-      if (stored) {
-        const config = JSON.parse(stored);
-        if (config.serverUrl) {
-          return config.serverUrl;
-        }
+    // If we're accessing via ngrok, construct the server URL
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      const protocol = window.location.protocol;
+
+      // Check if we're on ngrok
+      if (hostname.includes('ngrok')) {
+        // On ngrok free tier, both client and server tunnels share the same URL
+        // Ngrok routes internally based on the local port
+        // So we use the same ngrok URL for Socket.IO
+        return `${protocol}//${hostname}`;
       }
-    } catch (e) {
-      // Ignore
+
+      // Local development
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'http://localhost:3001';
+      }
+
+      // Same network (using IP address)
+      return `http://${hostname}:3001`;
     }
+
     return 'http://localhost:3001';
   }
 

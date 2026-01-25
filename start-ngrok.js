@@ -1,96 +1,135 @@
-import ngrok from 'ngrok';
+import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import http from 'http';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+async function fetchNgrokUrls() {
+  return new Promise((resolve) => {
+    http.get('http://localhost:4040/api/tunnels', (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          const tunnels = json.tunnels;
+          if (tunnels && tunnels.length > 0) {
+            const clientUrl = tunnels.find(t => t.name === 'client')?.public_url || tunnels[0].public_url;
+            resolve({ clientUrl, serverUrl: clientUrl });
+          } else {
+            resolve(null);
+          }
+        } catch (err) {
+          resolve(null);
+        }
+      });
+    }).on('error', () => resolve(null));
+  });
+}
+
 async function startNgrok() {
   try {
     console.log('Starting ngrok tunnels...\n');
+    console.log('🔄 Launching ngrok with config file...\n');
 
-    // Ensure ngrok uses the project-local config file instead of the OS default
-    const projectConfigPath = path.join(__dirname, 'ngrok.yml');
-    process.env.NGROK_CONFIG = projectConfigPath;
+    // Start ngrok using the CLI with config file
+    const ngrokProcess = spawn('ngrok', ['start', '--all', '--config', path.join(__dirname, 'ngrok.yml')], {
+      stdio: 'pipe',
+      detached: false
+    });
 
-    // Best-effort: clean up any existing tunnels to avoid name conflicts
-    try {
-      // Attempt to delete existing tunnels via ngrok local API (if running)
-      const res = await fetch('http://127.0.0.1:4040/api/tunnels');
-      if (res.ok) {
-        const data = await res.json();
-        const tunnels = Array.isArray(data.tunnels) ? data.tunnels : [];
-        for (const t of tunnels) {
-          const delUrl = `http://127.0.0.1:4040/api/tunnels/${encodeURIComponent(t.name)}`;
-          try {
-            await fetch(delUrl, { method: 'DELETE' });
-          } catch (_) {
-            // ignore
+    ngrokProcess.stderr.on('data', (data) => {
+      const error = data.toString();
+      // Only show errors that aren't normal startup messages
+      if (!error.includes('INF') && !error.includes('lvl=info')) {
+        console.error('Ngrok error:', error);
+      }
+    });
+
+    // Poll ngrok API for tunnel URLs
+    let urlsSaved = false;
+    const pollInterval = setInterval(async () => {
+      if (urlsSaved) return;
+
+      const urls = await fetchNgrokUrls();
+      if (urls) {
+        console.log('\n✅ Ngrok tunnels started successfully!\n');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('📱 MOBILE ACCESS URLS:');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log(`\n🖥️  Host UI:      ${urls.clientUrl}/host`);
+        console.log(`🎤 Player 1 UI:   ${urls.clientUrl}/client?p=1`);
+        console.log(`🎤 Player 2 UI:   ${urls.clientUrl}/client?p=2`);
+        console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+        // Save URLs to config files
+        const config = {
+          serverUrl: urls.serverUrl,
+          clientUrl: urls.clientUrl,
+          timestamp: new Date().toISOString()
+        };
+
+        try {
+          fs.writeFileSync(
+            path.join(__dirname, 'ngrok-urls.json'),
+            JSON.stringify(config, null, 2)
+          );
+
+          // Create public folder if it doesn't exist
+          if (!fs.existsSync(path.join(__dirname, 'public'))) {
+            fs.mkdirSync(path.join(__dirname, 'public'));
           }
+
+          fs.writeFileSync(
+            path.join(__dirname, 'public', 'ngrok-urls.json'),
+            JSON.stringify(config, null, 2)
+          );
+
+          console.log('💾 URLs saved to ngrok-urls.json and public/ngrok-urls.json\n');
+          console.log('⚠️  Keep this terminal open to maintain the tunnels!\n');
+          urlsSaved = true;
+          clearInterval(pollInterval);
+        } catch (err) {
+          console.error('⚠️  Warning: Could not save URLs to file:', err.message);
         }
       }
-    } catch (_) {
-      // ignore if API not available
-    }
+    }, 2000);
 
-    // Also ensure any ngrok background process is terminated
-    try { await ngrok.kill(); } catch (_) {}
-    // small delay to allow shutdown
-    await new Promise(r => setTimeout(r, 200));
-
-    // Start tunnel for server (port 3001)
-    const serverUrl = await ngrok.connect({
-      addr: 3001,
-      proto: 'http',
-      name: 'vc-server',
-      authtoken: '38ieF17TJjkWAhdpIJCWgdIE9Wy_2wEg4D8a4GckXj1czYhiT'
+    ngrokProcess.on('error', (error) => {
+      console.error('❌ Failed to start ngrok:', error.message);
+      console.error('\nMake sure ngrok is installed:');
+      console.error('  brew install ngrok/ngrok/ngrok');
+      clearInterval(pollInterval);
+      process.exit(1);
     });
 
-    // Start tunnel for client (port 3000)
-    const clientUrl = await ngrok.connect({
-      addr: 3000,
-      proto: 'http',
-      name: 'vc-client',
-      authtoken: '38ieF17TJjkWAhdpIJCWgdIE9Wy_2wEg4D8a4GckXj1czYhiT'
+    ngrokProcess.on('exit', (code) => {
+      clearInterval(pollInterval);
+      if (code !== 0 && code !== null) {
+        console.error(`\n❌ Ngrok exited with code ${code}`);
+        process.exit(code);
+      }
     });
 
-    console.log('✅ Ngrok tunnels started successfully!\n');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📱 MOBILE ACCESS URLS:');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`\n🖥️  Host UI:      ${clientUrl}/host`);
-    console.log(`🎤 Player 1 UI:   ${clientUrl}/client?p=1`);
-    console.log(`🎤 Player 2 UI:   ${clientUrl}/client?p=2`);
-    console.log(`\n🔌 Server URL:    ${serverUrl}`);
-    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-
-    // Write URLs to a config file for the app to use
-    const config = {
-      serverUrl,
-      clientUrl,
-      timestamp: new Date().toISOString()
-    };
-
-    fs.writeFileSync(
-      path.join(__dirname, 'ngrok-urls.json'),
-      JSON.stringify(config, null, 2)
-    );
-
-    // Also copy to public folder for Vite to serve
-    fs.writeFileSync(
-      path.join(__dirname, 'public', 'ngrok-urls.json'),
-      JSON.stringify(config, null, 2)
-    );
-
-    console.log('💾 URLs saved to ngrok-urls.json and public/ngrok-urls.json\n');
-    console.log('⚠️  Keep this terminal open to maintain the tunnels!\n');
-
-    // Keep the process running
-    process.on('SIGINT', async () => {
+    // Handle shutdown gracefully
+    process.on('SIGINT', () => {
       console.log('\n\nShutting down ngrok tunnels...');
-      await ngrok.kill();
-      process.exit(0);
+      clearInterval(pollInterval);
+      ngrokProcess.kill('SIGTERM');
+      setTimeout(() => {
+        process.exit(0);
+      }, 1000);
+    });
+
+    process.on('SIGTERM', () => {
+      clearInterval(pollInterval);
+      ngrokProcess.kill('SIGTERM');
+      setTimeout(() => {
+        process.exit(0);
+      }, 1000);
     });
 
   } catch (error) {

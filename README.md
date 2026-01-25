@@ -1,4 +1,4 @@
-# 🎤 VOCAL COMBAT: Multiplayer Pitch Fighter
+# 🎤 KARAOKE COMBAT: Multiplayer Pitch Fighter
 
 A local multiplayer karaoke fighting game where two players battle using their singing voices. Match the pitch of scrolling MIDI notes to deal damage to your opponent!
 

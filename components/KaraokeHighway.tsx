@@ -24,10 +24,32 @@ const KaraokeHighway: React.FC<KaraokeHighwayProps> = ({
     n.time <= currentTime + VIEW_WINDOW
   );
 
-  // Calculate frequency range from visible notes for dynamic scaling
+  // Dynamic frequency range based on visible notes
   const freqs = visibleNotes.map(n => n.pitch).filter(f => f > 0);
-  const minFreq = freqs.length > 0 ? Math.min(...freqs) * 0.8 : 200;
-  const maxFreq = freqs.length > 0 ? Math.max(...freqs) * 1.2 : 600;
+  
+  let minFreq = 0;
+  let maxFreq = 600; // Default range for low notes
+  
+  if (freqs.length > 0) {
+    const minNote = Math.min(...freqs);
+    const maxNote = Math.max(...freqs);
+    
+    // Add 20% padding above and below for better visibility
+    const padding = (maxNote - minNote) * 0.2;
+    minFreq = Math.max(0, minNote - padding);
+    maxFreq = maxNote + padding;
+    
+    // Ensure minimum range of 400 Hz for usability
+    if (maxFreq - minFreq < 400) {
+      const center = (maxFreq + minFreq) / 2;
+      minFreq = Math.max(0, center - 200);
+      maxFreq = center + 200;
+    }
+    
+    // Round to nice numbers for cleaner display
+    minFreq = Math.floor(minFreq / 50) * 50;
+    maxFreq = Math.ceil(maxFreq / 50) * 50;
+  }
 
   // Map frequency to vertical position
   const getTopPosition = (freq: number) => {
@@ -44,7 +66,7 @@ const KaraokeHighway: React.FC<KaraokeHighwayProps> = ({
   };
 
   return (
-    <div className="relative w-full h-48 bg-gray-900 border-y-2 border-cyan-500/50 overflow-hidden mt-4">
+    <div className="relative w-full bg-gray-900 border-y-2 border-cyan-500/50 overflow-hidden mt-4" style={{ height: '50vh' }}>
       {/* Strike Line */}
       <div className="absolute left-24 top-0 w-1 h-full bg-yellow-400 z-10 shadow-[0_0_15px_rgba(255,255,0,0.5)]" />
       
@@ -52,29 +74,38 @@ const KaraokeHighway: React.FC<KaraokeHighwayProps> = ({
       <div className="absolute left-24 top-2 text-xs text-yellow-400 font-mono z-20">
         {currentTime.toFixed(1)}s
       </div>
+      
+      {/* Dynamic range indicator */}
+      <div className="absolute right-2 top-2 text-[9px] text-gray-500 font-mono z-20">
+        Range: {Math.round(minFreq)}-{Math.round(maxFreq)}Hz
+      </div>
 
       {/* Pitch Indicator (User's real-time voice) */}
       {currentPitch > 0 && (
         <div 
-          className={`absolute left-24 w-6 h-6 rounded-full transition-all duration-75 z-20 shadow-[0_0_20px_white] flex items-center justify-center ${
+          className={`absolute left-24 w-8 h-8 rounded-full transition-all duration-75 z-20 shadow-[0_0_20px_white] flex items-center justify-center ${
             attackingPlayer === 1 ? 'bg-cyan-400' : 'bg-yellow-400'
           }`}
           style={{ 
             top: getTopPosition(currentPitch), 
-            marginLeft: '-12px', 
-            marginTop: '-12px' 
+            marginLeft: '-16px', 
+            marginTop: '-16px' 
           }}
         >
-          <span className="text-[8px] font-bold text-black">
+          <span className="text-[10px] font-bold text-black">
             {Math.round(currentPitch)}
           </span>
         </div>
       )}
 
-      {/* Frequency scale labels */}
-      <div className="absolute left-2 top-0 h-full flex flex-col justify-between py-2 text-[10px] text-gray-500 font-mono">
+      {/* Frequency scale labels - Dynamic based on range */}
+      <div className="absolute left-1 top-0 h-full flex flex-col justify-between py-2 text-[9px] text-gray-400 font-mono">
         <span>{Math.round(maxFreq)}Hz</span>
-        <span>{Math.round((maxFreq + minFreq) / 2)}Hz</span>
+        <span>{Math.round(maxFreq * 0.83)}Hz</span>
+        <span>{Math.round(maxFreq * 0.67)}Hz</span>
+        <span>{Math.round(maxFreq * 0.5)}Hz</span>
+        <span>{Math.round(maxFreq * 0.33)}Hz</span>
+        <span>{Math.round(maxFreq * 0.17)}Hz</span>
         <span>{Math.round(minFreq)}Hz</span>
       </div>
 
@@ -96,7 +127,7 @@ const KaraokeHighway: React.FC<KaraokeHighwayProps> = ({
           return (
             <div 
               key={`${note.time}-${idx}`}
-              className={`absolute h-6 rounded-md border-2 flex items-center justify-center transition-all ${
+              className={`absolute h-4 rounded-md border flex items-center justify-center transition-all ${
                 isMatching 
                   ? 'bg-green-500 border-green-300 animate-pulse scale-110' 
                   : isActive 
@@ -109,11 +140,11 @@ const KaraokeHighway: React.FC<KaraokeHighwayProps> = ({
                 left: `${xPos}%`, 
                 top: getTopPosition(note.pitch), 
                 width: `${width}%`,
-                minWidth: '30px',
+                minWidth: '20px',
                 transform: 'translateY(-50%)'
               }}
             >
-              <span className="text-[9px] font-bold text-white whitespace-nowrap overflow-hidden px-1">
+              <span className="text-[7px] font-bold text-white whitespace-nowrap overflow-hidden px-1">
                 {Math.round(note.pitch)}Hz
               </span>
             </div>

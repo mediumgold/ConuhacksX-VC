@@ -93,6 +93,11 @@ const HostPage: React.FC = () => {
     });
 
     socketClient.on('pitch_update', (data: { slot: 1 | 2; pitch: number }) => {
+      // Log occasionally to verify pitch data is being received
+      if (Math.random() < 0.02) {
+        console.log(`[Host] ✅ Received pitch from P${data.slot}:`, Math.round(data.pitch), 'Hz');
+      }
+      
       if (data.slot === 1) {
         p1PitchRef.current = data.pitch;
       } else {
@@ -112,54 +117,55 @@ const HostPage: React.FC = () => {
     };
   }, []);
 
+  // Fetch dropdown data function
+  const fetchAllData = useCallback(async () => {
+    // Use relative URLs so Vite proxy can handle them
+    console.log('[HostPage] Fetching dropdown data...');
+
+    // Fetch MIDI files
+    try {
+      console.log('[HostPage] Fetching MIDI files from: /api/midi-files');
+      const midiRes = await fetch('/api/midi-files');
+      console.log('[HostPage] MIDI response status:', midiRes.status);
+      const midiData = await midiRes.json();
+      console.log('[HostPage] MIDI data received:', midiData);
+      setAvailableMidiFiles(midiData.files || []);
+      console.log('[HostPage] MIDI files state updated');
+    } catch (err) {
+      console.error('[HostPage] MIDI fetch error:', err);
+    }
+
+    // Fetch YouTube links
+    try {
+      console.log('[HostPage] Fetching YouTube links from: /api/youtube-links');
+      const ytRes = await fetch('/api/youtube-links');
+      console.log('[HostPage] YouTube response status:', ytRes.status);
+      const ytData = await ytRes.json();
+      console.log('[HostPage] YouTube data received:', ytData);
+      setYoutubeLinks(ytData.links || []);
+      console.log('[HostPage] YouTube links state updated');
+    } catch (err) {
+      console.error('[HostPage] YouTube links fetch error:', err);
+    }
+
+    // Fetch lyrics files
+    try {
+      console.log('[HostPage] Fetching lyrics files from: /api/lyrics-files');
+      const lyricsRes = await fetch('/api/lyrics-files');
+      console.log('[HostPage] Lyrics response status:', lyricsRes.status);
+      const lyricsData = await lyricsRes.json();
+      console.log('[HostPage] Lyrics data received:', lyricsData);
+      setLyricsFiles(lyricsData.files || []);
+      console.log('[HostPage] Lyrics files state updated');
+    } catch (err) {
+      console.error('[HostPage] Lyrics fetch error:', err);
+    }
+  }, []);
+
   // Fetch dropdown data on mount
   useEffect(() => {
-    const fetchAllData = async () => {
-      // Use relative URLs so Vite proxy can handle them
-      console.log('[HostPage] Fetching dropdown data...');
-
-      // Fetch MIDI files
-      try {
-        console.log('[HostPage] Fetching MIDI files from: /api/midi-files');
-        const midiRes = await fetch('/api/midi-files');
-        console.log('[HostPage] MIDI response status:', midiRes.status);
-        const midiData = await midiRes.json();
-        console.log('[HostPage] MIDI data received:', midiData);
-        setAvailableMidiFiles(midiData.files || []);
-        console.log('[HostPage] MIDI files state updated');
-      } catch (err) {
-        console.error('[HostPage] MIDI fetch error:', err);
-      }
-
-      // Fetch YouTube links
-      try {
-        console.log('[HostPage] Fetching YouTube links from: /api/youtube-links');
-        const ytRes = await fetch('/api/youtube-links');
-        console.log('[HostPage] YouTube response status:', ytRes.status);
-        const ytData = await ytRes.json();
-        console.log('[HostPage] YouTube data received:', ytData);
-        setYoutubeLinks(ytData.links || []);
-        console.log('[HostPage] YouTube links state updated');
-      } catch (err) {
-        console.error('[HostPage] YouTube links fetch error:', err);
-      }
-
-      // Fetch lyrics files
-      try {
-        console.log('[HostPage] Fetching lyrics files from: /api/lyrics-files');
-        const lyricsRes = await fetch('/api/lyrics-files');
-        console.log('[HostPage] Lyrics response status:', lyricsRes.status);
-        const lyricsData = await lyricsRes.json();
-        console.log('[HostPage] Lyrics data received:', lyricsData);
-        setLyricsFiles(lyricsData.files || []);
-        console.log('[HostPage] Lyrics files state updated');
-      } catch (err) {
-        console.error('[HostPage] Lyrics fetch error:', err);
-      }
-    };
-
     fetchAllData();
-  }, []);
+  }, [fetchAllData]);
 
   // Load YouTube IFrame API
   useEffect(() => {
@@ -776,7 +782,15 @@ const HostPage: React.FC = () => {
             
             {/* Dropdown for pre-loaded MIDI files */}
             <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-2">Select from Midi Files folder:</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm text-gray-400">Select from Midi Files folder:</label>
+                <button
+                  onClick={fetchAllData}
+                  className="text-xs text-cyan-400 hover:text-cyan-300 underline"
+                >
+                  🔄 Refresh
+                </button>
+              </div>
               <select
                 value={selectedMidiFile}
                 onChange={(e) => handleMidiSelect(e.target.value)}
@@ -817,7 +831,15 @@ const HostPage: React.FC = () => {
             
             {/* Dropdown for lyrics files from Lyrics folder */}
             <div className="mb-4">
-                <label className="block text-sm text-gray-400 mb-2">Select lyrics file:</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm text-gray-400">Select lyrics file:</label>
+                  <button
+                    onClick={fetchAllData}
+                    className="text-xs text-cyan-400 hover:text-cyan-300 underline"
+                  >
+                    🔄 Refresh
+                  </button>
+                </div>
                 <select
                   value={selectedLyricsFile}
                   onChange={(e) => handleLyricsFileSelect(e.target.value)}

@@ -55,6 +55,7 @@ const ClientPage: React.FC = () => {
     });
 
     socketClient.on('game_start', () => {
+      console.log('[Client] ✅ GAME_START event received - pitch transmission now enabled');
       setGameStarted(true);
     });
 
@@ -106,6 +107,7 @@ const ClientPage: React.FC = () => {
       sourceRef.current.connect(analyserRef.current);
 
       setMicEnabled(true);
+      console.log('[Client] ✅ Microphone enabled, starting pitch detection loop');
       startMicLoop();
     } catch (err: any) {
       console.error('Mic error:', err);
@@ -121,6 +123,7 @@ const ClientPage: React.FC = () => {
 
   // Mic processing loop
   const startMicLoop = () => {
+    console.log('[Client] Starting mic processing loop');
     const loop = () => {
       if (!analyserRef.current || !audioCtxRef.current) {
         animationFrameRef.current = requestAnimationFrame(loop);
@@ -144,7 +147,21 @@ const ClientPage: React.FC = () => {
 
       // Send pitch data to server if game is active
       if (gameStarted && assignedSlot && pitch > 0) {
+        // Log every 30 frames (~0.5 seconds at 60fps)
+        if (Math.random() < 0.033) {
+          console.log(`[Client P${assignedSlot}] ✅ Sending pitch:`, Math.round(pitch), 'Hz, volume:', rms.toFixed(3));
+        }
         socketClient.sendPitchData(assignedSlot, pitch, Date.now(), rms);
+      } else if (pitch > 0) {
+        // Log if pitch detected but can't send
+        if (Math.random() < 0.01) {
+          console.log(`[Client] ⚠️ Pitch detected (${Math.round(pitch)}Hz) but NOT sending - gameStarted:${gameStarted}, assignedSlot:${assignedSlot}`);
+        }
+      }
+      
+      // Log if no pitch detected
+      if (pitch <= 0 && Math.random() < 0.005) {
+        console.log('[Client] No pitch detected (silence or noise)');
       }
 
       animationFrameRef.current = requestAnimationFrame(loop);
@@ -255,6 +272,28 @@ const ClientPage: React.FC = () => {
                     className="h-full bg-cyan-500 transition-all duration-75"
                     style={{ width: `${Math.min(100, volume * 500)}%` }}
                   />
+                </div>
+                
+                {/* Debug Status */}
+                <div className="mt-4 pt-4 border-t border-gray-700 text-xs space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Game Started:</span>
+                    <span className={gameStarted ? 'text-green-400' : 'text-red-400'}>
+                      {gameStarted ? '✅ YES' : '❌ NO'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Assigned Slot:</span>
+                    <span className={assignedSlot ? 'text-green-400' : 'text-red-400'}>
+                      {assignedSlot ? `✅ P${assignedSlot}` : '❌ None'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Pitch Transmission:</span>
+                    <span className={gameStarted && assignedSlot && currentPitch > 0 ? 'text-green-400' : 'text-yellow-400'}>
+                      {gameStarted && assignedSlot && currentPitch > 0 ? '✅ ACTIVE' : '⏸️ WAITING'}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}

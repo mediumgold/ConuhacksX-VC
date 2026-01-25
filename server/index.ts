@@ -61,7 +61,7 @@ app.get('/api/youtube-links', async (req, res) => {
     console.log('[API] /api/youtube-links - Reading from:', linksPath);
     const content = await readFile(linksPath, 'utf-8');
     console.log('[API] /api/youtube-links - Content:', content);
-    const lines = content.split('\n').filter(line => line.trim());
+    const lines = content.split(/\r?\n/).filter(line => line.trim());
     
     // Parse format: [Song Name - Artist]https://youtube.com/...
     const links = lines.map(line => {
@@ -280,12 +280,21 @@ io.on('connection', (socket: Socket) => {
       songConfig: payload.songConfig
     });
 
-    console.log(`[Server] Game started at ${session.gameStartTimestamp}`);
+    console.log(`[Server] ✅ Game started at ${session.gameStartTimestamp}`);
+    console.log(`[Server] Broadcasting game_start to all clients (P1: ${session.player1SocketId}, P2: ${session.player2SocketId}, Host: ${session.hostSocketId})`);
   });
 
   // Handle pitch data from clients
   socket.on('pitch_data', (payload: PitchDataPayload) => {
-    if (!session.gameInProgress) return;
+    if (!session.gameInProgress) {
+      console.log('[Server] Pitch data received but game not in progress');
+      return;
+    }
+
+    // Log occasionally to verify pitch relay
+    if (Math.random() < 0.02) {
+      console.log(`[Server] ✅ Relaying pitch from P${payload.slot}:`, Math.round(payload.pitch), 'Hz to host ${session.hostSocketId}');
+    }
 
     // Relay pitch data to host
     if (session.hostSocketId) {
@@ -295,6 +304,8 @@ io.on('connection', (socket: Socket) => {
         timestamp: payload.timestamp,
         volume: payload.volume
       });
+    } else {
+      console.log('[Server] ⚠️ No host connected to relay pitch data to');
     }
   });
 

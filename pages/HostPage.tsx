@@ -570,10 +570,42 @@ const HostPage: React.FC = () => {
     }
 
     const currentTime = ytPlayerRef.current.getCurrentTime() || 0;
+    const playerState = ytPlayerRef.current.getPlayerState?.();
+    const isVideoEnded = playerState === 0; // YT.PlayerState.ENDED = 0
 
     setGameState(prevState => {
       if (!prevState || prevState.phase !== GamePhase.PLAYING) {
         return prevState;
+      }
+      
+      // End game if YouTube video has ended OR time exceeds duration
+      if (isVideoEnded || currentTime >= prevState.songDuration) {
+        const finalState = { ...prevState, phase: GamePhase.GAME_OVER };
+        
+        // Determine winner by score
+        if (finalState.player1.score > finalState.player2.score) {
+          finalState.winner = 1;
+        } else if (finalState.player2.score > finalState.player1.score) {
+          finalState.winner = 2;
+        } else {
+          const p1AccPct = finalState.player1.notesHit > 0 
+            ? finalState.player1.totalAccuracy / finalState.player1.notesHit 
+            : 0;
+          const p2AccPct = finalState.player2.notesHit > 0 
+            ? finalState.player2.totalAccuracy / finalState.player2.notesHit 
+            : 0;
+          
+          if (p1AccPct > p2AccPct) {
+            finalState.winner = 1;
+          } else if (p2AccPct > p1AccPct) {
+            finalState.winner = 2;
+          } else {
+            finalState.winner = 'tie';
+          }
+        }
+        
+        endGame(finalState);
+        return finalState;
       }
 
       // Process tick - use refs to get current pitch values (avoid stale closure)

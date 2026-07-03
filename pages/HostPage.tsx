@@ -10,7 +10,7 @@ import {
 } from '../services/gameEngine';
 import { GamePhase } from '../types';
 import type { LobbyState, GameState, MidiNote, LrcLine, SongConfig } from '../types';
-import Fighter from '../components/Fighter';
+import Fighter from '../components/SpriteFighter'; // sprite-based; swap back to '../components/Fighter' for stick figures
 import KaraokeHighway from '../components/KaraokeHighway';
 import NgrokSetup from './NgrokSetup';
 import { Mic, Users, Play, Upload, Music, FileText, Wifi, WifiOff, ArrowLeft } from 'lucide-react';
@@ -991,6 +991,8 @@ const HostPage: React.FC = () => {
               score={gameState.player1.score}
               isAttacking={gameState.player1.isAttacking} 
               isDamaged={gameState.player1.isDamaged} 
+              isComboAttacking={gameState.player1.isComboAttacking}
+              comboCount={gameState.player1.comboCount}
             />
 
             {/* Center info */}
@@ -1031,6 +1033,8 @@ const HostPage: React.FC = () => {
               score={gameState.player2.score}
               isAttacking={gameState.player2.isAttacking} 
               isDamaged={gameState.player2.isDamaged} 
+              isComboAttacking={gameState.player2.isComboAttacking}
+              comboCount={gameState.player2.comboCount}
             />
           </div>
 

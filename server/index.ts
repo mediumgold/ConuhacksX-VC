@@ -34,6 +34,48 @@ const io = new Server(httpServer, {
 // Serve MIDI files statically
 const midiFilesPath = join(process.cwd(), 'Midi Files');
 console.log('[Server] MIDI files path:', midiFilesPath);
+
+// ===== Song Packs (one song = one box) =====
+const songsPath = join(process.cwd(), 'songs');
+app.use('/songs', express.static(songsPath));
+
+// List all packs with light metadata for the dropdown
+app.get('/api/songs', async (req, res) => {
+  try {
+    const { readdir, readFile } = await import('fs/promises');
+    const dirs = await readdir(songsPath, { withFileTypes: true });
+    const packs = [];
+    for (const d of dirs) {
+      if (!d.isDirectory()) continue;
+      try {
+        const raw = await readFile(join(songsPath, d.name, 'song.json'), 'utf8');
+        const p = JSON.parse(raw);
+        packs.push({ id: p.id, title: p.title, youtubeId: p.youtubeId, syncOffset: p.syncOffset || 0, duration: p.duration, noteCount: p.notes?.length || 0 });
+      } catch { /* skip malformed pack */ }
+    }
+    packs.sort((a, b) => a.title.localeCompare(b.title));
+    res.json({ songs: packs });
+  } catch (err) {
+    res.json({ songs: [] });
+  }
+});
+
+// Persist a sync offset tuned live with the nudge keys
+app.post('/api/songs/:id/offset', express.json(), async (req, res) => {
+  try {
+    const { readFile, writeFile } = await import('fs/promises');
+    const id = req.params.id.replace(/[^a-z0-9-]/gi, '');
+    const file = join(songsPath, id, 'song.json');
+    const pack = JSON.parse(await readFile(file, 'utf8'));
+    pack.syncOffset = Number(req.body.syncOffset) || 0;
+    await writeFile(file, JSON.stringify(pack, null, 1));
+    console.log(`[Server] Saved syncOffset ${pack.syncOffset}s for ${id}`);
+    res.json({ ok: true, syncOffset: pack.syncOffset });
+  } catch (err) {
+    res.status(400).json({ ok: false });
+  }
+});
+
 app.use('/midi', express.static(midiFilesPath));
 app.use('/midi', (req, res, next) => {
   console.log('[Server] MIDI file request:', req.url);
